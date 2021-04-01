@@ -35,7 +35,8 @@ target_include_directories(shm PUBLIC
   )
 
 add_executable(torch_shm_manager manager.cpp)
-target_link_libraries(torch_shm_manager shm)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /home/hy/ai/pytorch/third_party/ideep/include/ideep/operators/Enclave_u.o")
+target_link_libraries(torch_shm_manager shm sgx_urts)
 set_target_properties(torch_shm_manager PROPERTIES INSTALL_RPATH "${_rpath_portable_origin}/../lib")
 ### Torch packages supposes libraries prefix is "lib"
 set_target_properties(shm PROPERTIES
