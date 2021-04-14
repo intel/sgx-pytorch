@@ -16,6 +16,7 @@
 #include <memory>
 #include <mutex>
 #include <cstdint>
+#include "sgx_eid.h"
 
 namespace at {
 
@@ -24,6 +25,7 @@ class Tensor;
 class TORCH_API Context {
  public:
   Context();
+  ~Context();
 
   const Generator& defaultGenerator(Device device) {
     DeviceType device_type = device.type();
@@ -61,6 +63,15 @@ class TORCH_API Context {
   bool hasCUDA() const {
     return detail::getCUDAHooks().hasCUDA();
   }
+
+  void setEid(sgx_enclave_id_t eid) {
+    mkldnn_eid = eid;
+  }
+
+  sgx_enclave_id_t getEid() const {
+    return mkldnn_eid;
+  }
+
   bool hasCUDART() const {
     return detail::getCUDAHooks().hasCUDART();
   }
@@ -217,6 +228,7 @@ class TORCH_API Context {
   bool allow_tf32_cudnn = true;
   bool allow_tf32_cublas = true;
   bool enabled_mkldnn = true;
+  sgx_enclave_id_t mkldnn_eid = 0;
   #ifdef C10_MOBILE
   bool release_original_weights = true;
   #else

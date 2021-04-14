@@ -55,6 +55,9 @@ ideep::tensor _mkldnn_convolution(
   std::vector<int64_t> output_sizes =
       conv_output_size(input_size, kernel_size, padding, stride, dilation);
 
+  auto& ctx = at::globalContext();
+  sgx_enclave_id_t eid = ctx.getEid();
+
   ideep::tensor y;
   if (b.has_value()) {
     ideep::convolution_forward::compute(
@@ -67,7 +70,8 @@ ideep::tensor _mkldnn_convolution(
         {dilation.begin(), dilation.end()},
         {padding.begin(), padding.end()},
         {padding.begin(), padding.end()},
-        groups);
+        groups,
+        &eid);
   } else {
     ideep::convolution_forward::compute(
         x,
@@ -78,8 +82,10 @@ ideep::tensor _mkldnn_convolution(
         {dilation.begin(), dilation.end()},
         {padding.begin(), padding.end()},
         {padding.begin(), padding.end()},
-        groups);
+        groups,
+        &eid);
   }
+  ctx.setEid(eid);
   return y;
 }
 
@@ -91,12 +97,14 @@ Tensor mkldnn_convolution(
     IntArrayRef stride,
     IntArrayRef dilation,
     int64_t groups) {
+
   const ideep::tensor mkldnn_input = itensor_from_tensor(input);
   const ideep::tensor mkldnn_weight = itensor_from_tensor(weight);
   c10::optional<ideep::tensor> mkldnn_bias{c10::nullopt};
   if (bias.defined()) {
     mkldnn_bias = itensor_from_tensor(bias);
   }
+
 
   ideep::tensor mkldnn_output = _mkldnn_convolution(
       mkldnn_input,

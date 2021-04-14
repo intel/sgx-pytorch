@@ -65,8 +65,12 @@ std::tuple<Tensor, Tensor, Tensor> mkldnn_batch_norm(
   } else {
     TORCH_CHECK(input.dim() == 4 || input.dim() == 5,
                "mkldnn_batch_norm: currently mkldnn only support 2d and 3d batchnorm");
+
+    auto& ctx = at::globalContext();
+    sgx_enclave_id_t eid = ctx.getEid();
+
     ideep::batch_normalization_forward_inference::compute(
-        x, m, v, w, b, y, eps);
+        x, m, v, w, b, y, eps, &eid);
     return std::make_tuple(
         new_with_itensor_mkldnn(std::move(y), optTypeMetaToScalarType(input.options().dtype_opt()),
                                 input.options().device_opt()),

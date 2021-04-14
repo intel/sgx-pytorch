@@ -41,13 +41,18 @@ Tensor mkldnn_linear(
   const ideep::tensor x = itensor_from_mkldnn(self_reshaped);
   const ideep::tensor w = itensor_from_mkldnn(weight);
 
+  auto& ctx = at::globalContext();
+  sgx_enclave_id_t eid = ctx.getEid();
+
   ideep::tensor y;
   if (bias.defined()) {
     const ideep::tensor b = itensor_from_mkldnn(bias);
-    ideep::inner_product_forward::compute(x, w, b, y);
+    ideep::inner_product_forward::compute(x, w, b, y, &eid);
   } else {
-    ideep::inner_product_forward::compute(x, w, y);
+    ideep::inner_product_forward::compute(x, w, y, &eid);
   }
+
+  ctx.setEid(eid);
 
   auto input_size = self.sizes();
   std::vector<int64_t> output_size(input_size.begin(), input_size.end() - 1);

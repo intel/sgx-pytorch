@@ -20,11 +20,21 @@
 #include <fbgemm/Fbgemm.h>
 #endif // USE_FBGEMM
 
+#include "sgx_urts.h"
+
 namespace at {
 
 Context::Context()
     : thc_state(nullptr, [](THCState* p) { /* no-op */ }),
       thh_state(nullptr, [](THHState* p) { /* no-op */ }) {}
+
+Context::~Context()
+{
+    if (mkldnn_eid) {
+        printf("sgx_destroy_enclave ret is %d.\n", sgx_destroy_enclave(mkldnn_eid));
+        mkldnn_eid = 0;
+    }
+}
 
 // TODO: This could be bad juju if someone calls globalContext() in the
 // destructor of an object with static lifetime.
