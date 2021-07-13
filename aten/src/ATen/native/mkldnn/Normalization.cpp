@@ -30,6 +30,53 @@ std::tuple<Tensor, Tensor, Tensor> mkldnn_batch_norm(
 namespace at {
 namespace native {
 
+ideep::tensor mkldnn_secure_batch_norm(
+    const ideep::tensor& input,
+    const ideep::tensor& weight,
+    const ideep::tensor& bias,
+    const Tensor& running_mean,
+    const Tensor& running_var,
+    bool train,
+    double momentum,
+    double eps,
+    void* weight_iv_mac,
+    size_t weight_meta_size,
+    void* bias_iv_mac,
+    size_t bias_meta_size) {
+  //ideep::tensor& x = itensor_from_mkldnn(input);
+  //ideep::tensor& w = itensor_from_mkldnn(weight);
+  //ideep::tensor& b = itensor_from_mkldnn(bias);
+  auto x = input;
+  auto w = weight;
+  auto b = bias;
+  ideep::tensor m = itensor_from_tensor(running_mean);
+  ideep::tensor v = itensor_from_tensor(running_var);
+
+  ideep::tensor y;
+
+  //TODO:check input dims (ideep::tensor) like this (Tensor):
+  //TORCH_CHECK(input.dim() == 4 || input.dim() == 5,
+  //           "mkldnn_batch_norm: currently mkldnn only support 2d and 3d batchnorm");
+
+  auto& ctx = at::globalContext();
+  sgx_enclave_id_t eid = ctx.getEid();
+
+  ideep::batch_normalization_forward_inference::compute(
+      x, m, v, w, b, y, eps, weight_iv_mac, weight_meta_size, bias_iv_mac, bias_meta_size, &eid);
+
+  ctx.setEid(eid);
+  return y;
+  /*std::make_tuple(
+      new_with_itensor_mkldnn(std::move(y), optTypeMetaToScalarType(input.options().dtype_opt()),
+                              input.options().device_opt()),
+      new_with_itensor_mkldnn(ideep::tensor{}, optTypeMetaToScalarType(input.options().dtype_opt()),
+                              input.options().device_opt()),
+      new_with_itensor_mkldnn(ideep::tensor{}, optTypeMetaToScalarType(input.options().dtype_opt()),
+                              input.options().device_opt()));
+			      */
+  }
+
+
 std::tuple<Tensor, Tensor, Tensor> mkldnn_batch_norm(
     const Tensor& input,
     const Tensor& weight,
@@ -66,11 +113,13 @@ std::tuple<Tensor, Tensor, Tensor> mkldnn_batch_norm(
     TORCH_CHECK(input.dim() == 4 || input.dim() == 5,
                "mkldnn_batch_norm: currently mkldnn only support 2d and 3d batchnorm");
 
-    auto& ctx = at::globalContext();
-    sgx_enclave_id_t eid = ctx.getEid();
+    //auto& ctx = at::globalContext();
+    //sgx_enclave_id_t eid = ctx.getEid();
 
     ideep::batch_normalization_forward_inference::compute(
-        x, m, v, w, b, y, eps, &eid);
+        x, m, v, w, b, y, eps);//, &eid);
+
+    //ctx.setEid(eid);
     return std::make_tuple(
         new_with_itensor_mkldnn(std::move(y), optTypeMetaToScalarType(input.options().dtype_opt()),
                                 input.options().device_opt()),

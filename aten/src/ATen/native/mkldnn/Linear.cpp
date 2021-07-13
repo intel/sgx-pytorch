@@ -24,6 +24,63 @@ Tensor mkldnn_linear(
 namespace at {
 namespace native {
 
+ideep::tensor mkldnn_secure_linear(
+    const ideep::tensor& self,
+    const ideep::tensor& weight,
+    const c10::optional<ideep::tensor>& bias,
+    void* weight_iv_mac,
+    size_t weight_meta_size,
+    void* bias_iv_mac,
+    size_t bias_meta_size) {
+  /*TORCH_CHECK(self.dim() >= 2,
+      "mkldnn_linear: input needs to has dim at least 2, input dim ", self.dim());
+  TORCH_CHECK(self.is_mkldnn(),
+      "mkldnn_linear: input needs to be mkldnn layout");
+  TORCH_CHECK(
+      weight.is_mkldnn() && (!bias.defined() || bias.is_mkldnn()),
+      "mkldnn_linear: weight and bias need to be mkldnn layout");
+  */
+  // reshape first if input dim is greater than 2 and the reshape will cost a memory copy.
+  //auto self_reshaped = self.dim() > 2 ? self.reshape({-1, self.size(self.dim() - 1)}) : self;
+  //const ideep::tensor x = itensor_from_mkldnn(self_reshaped);
+  //const ideep::tensor w = itensor_from_mkldnn(weight);
+
+  auto& ctx = at::globalContext();
+  sgx_enclave_id_t eid = ctx.getEid();
+  
+  ideep::tensor y;
+  if (bias.has_value()) {
+    //const ideep::tensor b = itensor_from_mkldnn(bias);
+    ideep::inner_product_forward::compute(self, weight, bias.value(), y, weight_iv_mac, weight_meta_size, bias_iv_mac, bias_meta_size, &eid);
+  } else {
+    ideep::inner_product_forward::compute(self, weight, y, weight_iv_mac, weight_meta_size, &eid);
+  }
+
+  ctx.setEid(eid);
+  /*size_t bytes;
+  bytes = y.get_desc().get_size();
+  float *output_data = static_cast<float *>(y.get_data_handle());
+  for (size_t i = 0; i < bytes/sizeof(float); ++i) {
+      printf("###%ld### %f. 0x", i, output_data[i]);
+      for(int j=0; j<4; j++)
+          printf("%X ", *((uint8_t*)&output_data[i] +j) );
+  }*/
+  return y;
+  /*auto input_size = self.sizes();
+  std::vector<int64_t> output_size(input_size.begin(), input_size.end() - 1);
+  output_size.push_back(weight.size(0));
+
+  if (self.dim() > 2) {
+    return new_with_itensor_mkldnn(std::move(y), optTypeMetaToScalarType(self.options().dtype_opt()),
+                                   self.options().device_opt()).reshape(output_size);
+  }
+  return new_with_itensor_mkldnn(std::move(y), optTypeMetaToScalarType(self.options().dtype_opt()),
+                                 self.options().device_opt());
+				 */
+}
+
+
+
 Tensor mkldnn_linear(
     const Tensor& self,
     const Tensor& weight,
@@ -41,18 +98,18 @@ Tensor mkldnn_linear(
   const ideep::tensor x = itensor_from_mkldnn(self_reshaped);
   const ideep::tensor w = itensor_from_mkldnn(weight);
 
-  auto& ctx = at::globalContext();
-  sgx_enclave_id_t eid = ctx.getEid();
+  //auto& ctx = at::globalContext();
+  //sgx_enclave_id_t eid = ctx.getEid();
 
   ideep::tensor y;
   if (bias.defined()) {
     const ideep::tensor b = itensor_from_mkldnn(bias);
-    ideep::inner_product_forward::compute(x, w, b, y, &eid);
+    ideep::inner_product_forward::compute(x, w, b, y);//, &eid);
   } else {
-    ideep::inner_product_forward::compute(x, w, y, &eid);
+    ideep::inner_product_forward::compute(x, w, y);//, &eid);
   }
 
-  ctx.setEid(eid);
+  //ctx.setEid(eid);
 
   auto input_size = self.sizes();
   std::vector<int64_t> output_size(input_size.begin(), input_size.end() - 1);

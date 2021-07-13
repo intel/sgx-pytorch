@@ -40,14 +40,18 @@ std::tuple<Tensor, Tensor, Tensor> mkldnn_convolution_backward(
 
 namespace at { namespace native {
 
-ideep::tensor _mkldnn_convolution(
+ideep::tensor mkldnn_secure_convolution(
     const ideep::tensor& x,
     const ideep::tensor& w,
     const c10::optional<ideep::tensor>& b,
     IntArrayRef padding,
     IntArrayRef stride,
     IntArrayRef dilation,
-    int64_t groups) {
+    int64_t groups,
+    void* iv,
+    size_t iv_size,
+    void* mac,
+    size_t mac_size) {
 
   auto kernel_size = w.get_dims();
 
@@ -71,7 +75,11 @@ ideep::tensor _mkldnn_convolution(
         {padding.begin(), padding.end()},
         {padding.begin(), padding.end()},
         groups,
-        &eid);
+	iv,
+	iv_size,
+	mac,
+	mac_size,
+	&eid);
   } else {
     ideep::convolution_forward::compute(
         x,
@@ -83,9 +91,63 @@ ideep::tensor _mkldnn_convolution(
         {padding.begin(), padding.end()},
         {padding.begin(), padding.end()},
         groups,
-        &eid);
+	iv,
+	iv_size,
+	mac,
+	mac_size,
+	&eid);
   }
   ctx.setEid(eid);
+  return y;
+}
+
+
+ideep::tensor _mkldnn_convolution(
+    const ideep::tensor& x,
+    const ideep::tensor& w,
+    const c10::optional<ideep::tensor>& b,
+    IntArrayRef padding,
+    IntArrayRef stride,
+    IntArrayRef dilation,
+    int64_t groups) {
+
+  auto kernel_size = w.get_dims();
+
+  std::vector<int64_t> input_size = x.get_dims();
+  std::vector<int64_t> output_sizes =
+      conv_output_size(input_size, kernel_size, padding, stride, dilation);
+
+  //auto& ctx = at::globalContext();
+  //sgx_enclave_id_t eid = ctx.getEid();
+
+  ideep::tensor y;
+  if (b.has_value()) {
+    ideep::convolution_forward::compute(
+        x,
+        w,
+        b.value(),
+        {output_sizes.cbegin(), output_sizes.cend()},
+        y,
+        {stride.begin(), stride.end()},
+        {dilation.begin(), dilation.end()},
+        {padding.begin(), padding.end()},
+        {padding.begin(), padding.end()},
+        groups);//,
+        //&eid);
+  } else {
+    ideep::convolution_forward::compute(
+        x,
+        w,
+        {output_sizes.cbegin(), output_sizes.cend()},
+        y,
+        {stride.begin(), stride.end()},
+        {dilation.begin(), dilation.end()},
+        {padding.begin(), padding.end()},
+        {padding.begin(), padding.end()},
+        groups);//,
+        //&eid);
+  }
+  //ctx.setEid(eid);
   return y;
 }
 
