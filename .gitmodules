@@ -133,3 +133,6 @@
 [submodule "third_party/kineto"]
 	path = third_party/kineto
 	url = https://github.com/pytorch/kineto
+[submodule "third_party/sgx/linux-sgx"]
+	path = third_party/sgx/linux-sgx
+	url = https://github.com/intel/linux-sgx
