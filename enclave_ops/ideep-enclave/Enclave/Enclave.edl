@@ -1,0 +1,81 @@
+/*
+ * Copyright (C) 2011-2021 Intel Corporation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in
+ *     the documentation and/or other materials provided with the
+ *     distribution.
+ *   * Neither the name of Intel Corporation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+
+enclave {
+	
+	// Import the Ocalls for trusted mutex
+	from "sgx_tstdc.edl" import *;
+        from "sgx_pthread.edl" import *;
+
+    trusted {
+                public sgx_status_t ecall_conv_dnnl_function(
+                                                    [in, size=conv_desc_size] void* conv_desc, size_t conv_desc_size,
+                                                    [user_check] void* conv_attr,
+                                                    [in, size=src_data_size] void* src_handle, size_t src_data_size,
+                                                    [in, size=src_desc_size] void* void_src_desc, size_t src_desc_size,
+                                                    [in, size=weight_data_size] void* weight_handle, size_t weight_data_size,
+                                                    size_t with_bias,
+                                                    [in, size=bias_data_size] void* bias, size_t bias_data_size,
+                                                    [out, size=dst_data_size] void* dst, size_t dst_data_size,
+                                                    [in, size=weight_meta_size] void* weight_iv_mac, size_t weight_meta_size,
+                                                    [in, size=bias_meta_size] void* bias_iv_mac, size_t bias_meta_size);
+
+               public sgx_status_t ecall_inner_product_dnnl_function(
+                                                    [in, size=inner_product_desc_size] void* inner_product_desc, size_t inner_product_desc_size,
+                                                    [in, size=src_data_size] void* src_handle, size_t src_data_size,
+                                                    [in, size=inner_product_pri_size] void* inner_product_pri_desc, size_t inner_product_pri_size,
+                                                    [in, size=weight_data_size] void* weight_handle, size_t weight_data_size,
+                                                    size_t with_bias,
+                                                    [in, size=bias_data_size] void* bias, size_t bias_data_size,
+                                                    [out, size=dst_data_size] void* dst, size_t dst_data_size,
+                                                    [in, size=weight_meta_size] void* weight_iv_mac, size_t weight_meta_size,
+                                                    [in, size=bias_meta_size] void* bias_iv_mac, size_t bias_meta_size);
+
+               public sgx_status_t ecall_batch_norm_dnnl_function(
+                                                    [in, size=batch_norm_desc_size] void* batch_norm_desc, size_t batch_norm_desc_size,
+                                                    [in, size=src_data_size] void* src_handle, size_t src_data_size,
+                                                    [in, size=var_data_size] void* var_handle, size_t var_data_size,
+                                                    [in, size=mean_data_size] void* mean_handle, size_t mean_data_size,
+                                                    [in, size=scale_shift_data_size] void* scale_shift, size_t scale_shift_data_size,
+                                                    size_t scale_data_size, size_t shift_data_size,
+                                                    [out, size=dst_data_size] void* dst, size_t dst_data_size,
+                                                    [in, size=scale_meta_size] void* scale_iv_mac, size_t scale_meta_size,
+                                                    [in, size=scale_meta_size] void* shift_iv_mac, size_t shift_meta_size);
+
+    };
+
+    untrusted {
+		void ocall_print_string([in, string] const char *string);
+                int ocall_get_encryption_key_blob(uint32_t model_id, [out, size=key_blob_size] uint8_t *key_blob, uint32_t key_blob_size);
+    };
+};
+
