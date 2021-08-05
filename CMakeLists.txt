@@ -337,7 +337,12 @@ if(LINUX)
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-as-needed")
 endif()
 
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /home/hy/ai/pytorch/third_party/ideep/include/ideep/operators/Enclave_u.o /opt/intel/sgxsdk/lib64/libsgx_urts.so ")
+if (NOT DEFINED ENV{SGX_SDK})
+  message(FATAL_ERROR "SGX_SDK is not defined. DiD you source sgx environment?")
+endif()
+
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${PROJECT_SOURCE_DIR}/enclave_ops/ideep-enclave/App/Enclave_u.o $ENV{SGX_SDK}/lib64/libsgx_urts.so ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENCLAVE_PATH=\\\"${PROJECT_SOURCE_DIR}/enclave_ops/ideep-enclave/libenclave.signed.so\\\"")
 
 if(MSVC)
   foreach(flag_var
