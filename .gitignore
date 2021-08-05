@@ -37,6 +37,11 @@ docs/cpp/source/api
 docs/cpp/source/html/
 docs/cpp/source/latex/
 docs/source/generated/
+enclave_ops/ideep-enclave/App/Enclave_u.*
+enclave_ops/ideep-enclave/app
+enclave_ops/ideep-enclave/.config_HW_DEBUG_x64
+enclave_ops/ideep-enclave/Enclave/Enclave_t.*
+enclave_ops/secure_op/build
 log
 test-reports/
 test/.coverage
