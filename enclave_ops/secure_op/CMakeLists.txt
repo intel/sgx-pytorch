@@ -19,6 +19,8 @@ include_directories("$ENV{SGX_SDK}/include")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${TORCH_ROOT}/enclave_ops/ideep-enclave/App/Enclave_u.o $ENV{SGX_SDK}/lib64/libsgx_urts.so ")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${TORCH_ROOT}/build/lib/libdnnl.a")
 
+#set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} $ENV{SGX_SDK}/lib64//libsgx_dnnl2.a")
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lsgx_urts")
 set(CMAKE_CXX_FLAGS "-O0 -Wall -g -ggdb ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENCLAVE_PATH=\\\"${TORCH_ROOT}/enclave_ops/ideep-enclave/libenclave.signed.so\\\"")

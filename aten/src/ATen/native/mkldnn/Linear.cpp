@@ -31,7 +31,8 @@ ideep::tensor mkldnn_secure_linear(
     void* weight_iv_mac,
     size_t weight_meta_size,
     void* bias_iv_mac,
-    size_t bias_meta_size) {
+    size_t bias_meta_size,
+    void* model_id) {
   /*TORCH_CHECK(self.dim() >= 2,
       "mkldnn_linear: input needs to has dim at least 2, input dim ", self.dim());
   TORCH_CHECK(self.is_mkldnn(),
@@ -51,20 +52,12 @@ ideep::tensor mkldnn_secure_linear(
   ideep::tensor y;
   if (bias.has_value()) {
     //const ideep::tensor b = itensor_from_mkldnn(bias);
-    ideep::inner_product_forward::compute(self, weight, bias.value(), y, weight_iv_mac, weight_meta_size, bias_iv_mac, bias_meta_size, &eid);
+    ideep::inner_product_forward::compute(self, weight, bias.value(), y, weight_iv_mac, weight_meta_size, bias_iv_mac, bias_meta_size, model_id, &eid);
   } else {
-    ideep::inner_product_forward::compute(self, weight, y, weight_iv_mac, weight_meta_size, &eid);
+    ideep::inner_product_forward::compute(self, weight, y, weight_iv_mac, weight_meta_size, model_id, &eid);
   }
 
   ctx.setEid(eid);
-  /*size_t bytes;
-  bytes = y.get_desc().get_size();
-  float *output_data = static_cast<float *>(y.get_data_handle());
-  for (size_t i = 0; i < bytes/sizeof(float); ++i) {
-      printf("###%ld### %f. 0x", i, output_data[i]);
-      for(int j=0; j<4; j++)
-          printf("%X ", *((uint8_t*)&output_data[i] +j) );
-  }*/
   return y;
   /*auto input_size = self.sizes();
   std::vector<int64_t> output_size(input_size.begin(), input_size.end() - 1);

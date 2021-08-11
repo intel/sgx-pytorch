@@ -9,7 +9,7 @@ import os
 LIB_PATH = torch.__path__[0] + "/../enclave_ops/secure_op/build/libsecure_conv.so"
 
 class SecureMkldnnLinear(torch.jit.ScriptModule):
-    def __init__(self, dense_module, dtype):
+    def __init__(self, dense_module, key, model_id, dtype):
         super(SecureMkldnnLinear, self).__init__()
         self.register_buffer('weight', dense_module.weight.to_mkldnn(dtype))
         if dense_module.bias is not None:
@@ -25,8 +25,8 @@ class SecureMkldnnLinear(torch.jit.ScriptModule):
         self.bias = dense_module.bias
         if dense_module.bias is None:
             self.bias = torch.zeros([dense_module.weight.size(0)], dtype=torch.float)
-        self.encrypted_weight = _SecureMkldnnConvNd.construct_tensor(self.weight).detach()
-        self.encrypted_bias = _SecureMkldnnConvNd.construct_tensor(self.bias)
+        self.encrypted_weight = _SecureMkldnnConvNd.construct_tensor(self.weight, key, model_id).detach()
+        self.encrypted_bias = _SecureMkldnnConvNd.construct_tensor(self.bias, key, model_id)
         self.weight.requires_grad_(False).zero_()
         self.bias.requires_grad_(False).zero_()
 
@@ -58,7 +58,7 @@ class _SecureMkldnnConvNd(torch.jit.ScriptModule):
     """Common base of MkldnnConv1d and MkldnnConv2d"""
     __constants__ = ['stride', 'padding', 'dilation', 'groups']
 
-    def __init__(self, dense_module):
+    def __init__(self, dense_module, key, model_id):
         super(_SecureMkldnnConvNd, self).__init__()
 
         self.weight = dense_module.weight
@@ -68,10 +68,10 @@ class _SecureMkldnnConvNd(torch.jit.ScriptModule):
         self.groups = dense_module.groups
         self.output_padding = dense_module.output_padding
         self.bias = dense_module.bias
-        self.encrypted_weight = _SecureMkldnnConvNd.construct_tensor(self.weight).detach()
+        self.encrypted_weight = _SecureMkldnnConvNd.construct_tensor(self.weight, key, model_id).detach()
         if dense_module.bias is None:
             self.bias = torch.zeros([dense_module.weight.size(0)], dtype=torch.float)
-        self.encrypted_bias = _SecureMkldnnConvNd.construct_tensor(self.bias)
+        self.encrypted_bias = _SecureMkldnnConvNd.construct_tensor(self.bias, key, model_id)
         self.weight.requires_grad_(False).zero_()
         self.bias.zero_()
 
@@ -92,7 +92,24 @@ class _SecureMkldnnConvNd(torch.jit.ScriptModule):
 #        return (_SecureMkldnnConvNd.construct_tensor(self.weight), self.bias, self.training)
 
     #TODO:bias need encrypt
-
+    #encrypted data structure:
+    '''
+    uint32_t ndim
+    uint32_t dim[0]
+    uint32_t dim[1]
+    ... ...
+    uint32_t dim[ndim-1]
+    union {
+        struct {
+                     uint32_t dtype
+                     uint32_t model_id
+                   }
+        uint8_t reserved[100]
+    }
+    uint8_t iv[12]
+    uint8_t mac[16]
+    uint8_t *ciphertext
+    '''
     def construct_tensor(tensor, key = bytes(16), model_id = bytes(4)):
         assert isinstance(key, bytes) and len(key) == 16, "Please input bytes(16) as the key"
         assert isinstance(model_id, bytes) and len(model_id) == 4, "Please input bytes(4) as the model_id"
@@ -152,8 +169,8 @@ class _SecureMkldnnConvNd(torch.jit.ScriptModule):
 
 
 class SecureMkldnnConv1d(_SecureMkldnnConvNd):
-    def __init__(self, dense_module, dtype):
-        super(SecureMkldnnConv1d, self).__init__(dense_module)
+    def __init__(self, dense_module, key, model_id, dtype):
+        super(SecureMkldnnConv1d, self).__init__(dense_module, key, model_id)
 
 #        self.register_buffer('weight', dense_module.weight.to_mkldnn(dtype))
 
@@ -165,8 +182,8 @@ class SecureMkldnnConv1d(_SecureMkldnnConvNd):
 
 
 class SecureMkldnnConv2d(_SecureMkldnnConvNd):
-    def __init__(self, dense_module, dtype):
-        super(SecureMkldnnConv2d, self).__init__(dense_module)
+    def __init__(self, dense_module, key, model_id, dtype):
+        super(SecureMkldnnConv2d, self).__init__(dense_module, key, model_id)
 
         pass
     '''        self.register_buffer('weight', torch._C._nn.mkldnn_reorder_conv2d_weight(
@@ -195,8 +212,8 @@ class SecureMkldnnConv2d(_SecureMkldnnConvNd):
         self.training = state[2]'''
 
 class SecureMkldnnConv3d(_SecureMkldnnConvNd):
-    def __init__(self, dense_module, dtype):
-        super(SecureMkldnnConv3d, self).__init__(dense_module)
+    def __init__(self, dense_module, key, model_id, dtype):
+        super(SecureMkldnnConv3d, self).__init__(dense_module, key, model_id)
 
         pass
 
@@ -223,7 +240,7 @@ class SecureMkldnnConv3d(_SecureMkldnnConvNd):
 class SecureMkldnnBatchNorm(torch.jit.ScriptModule):
     __constants__ = ['exponential_average_factor', 'eps']
 
-    def __init__(self, dense_module):
+    def __init__(self, dense_module, key, model_id):
         super(SecureMkldnnBatchNorm, self).__init__()
 
         assert(not dense_module.training)
@@ -244,8 +261,10 @@ class SecureMkldnnBatchNorm(torch.jit.ScriptModule):
         self.bias = dense_module.bias
         self.running_mean = dense_module.running_mean
         self.running_var = dense_module.running_var
-        self.encrypted_weight = _SecureMkldnnConvNd.construct_tensor(self.weight).detach()
-        self.encrypted_bias = _SecureMkldnnConvNd.construct_tensor(self.bias)
+        self.encrypted_mean = _SecureMkldnnConvNd.construct_tensor(self.running_mean, key, model_id)
+        self.encrypted_var = _SecureMkldnnConvNd.construct_tensor(self.running_var, key, model_id)
+        self.encrypted_weight = _SecureMkldnnConvNd.construct_tensor(self.weight, key, model_id).detach()
+        self.encrypted_bias = _SecureMkldnnConvNd.construct_tensor(self.bias, key, model_id)
         self.weight.requires_grad_(False).zero_()
         self.bias.requires_grad_(False).zero_()
 
@@ -274,36 +293,36 @@ class SecureMkldnnBatchNorm(torch.jit.ScriptModule):
             x,
             self.encrypted_weight,
             self.encrypted_bias,
-            self.running_mean,
-            self.running_var,
+            self.encrypted_mean,
+            self.encrypted_var,
             self.exponential_average_factor,
             self.eps)
 
 
-def to_secure_mkldnn(module, dtype=torch.float):
+def to_secure_mkldnn(module, key=bytes(16), model_id=bytes(4), dtype=torch.float):
     assert dtype in [torch.float, torch.bfloat16], \
         "MKLDNN only support float or bfloat16 path now"
 
-    def m_fn(m, d):
+    def m_fn(m, key, mid, d):
         if isinstance(m, torch.nn.Linear):
-            return SecureMkldnnLinear(m, d)
+            return SecureMkldnnLinear(m, key, mid, d)
         elif isinstance(m, torch.nn.Conv1d):
-            return SecureMkldnnConv1d(m, d)
+            return SecureMkldnnConv1d(m, key, mid, d)
         elif isinstance(m, torch.nn.Conv2d):
-            return SecureMkldnnConv2d(m, d)
+            return SecureMkldnnConv2d(m, key, mid, d)
         elif isinstance(m, torch.nn.Conv3d):
-            return SecureMkldnnConv3d(m, d)
+            return SecureMkldnnConv3d(m, key, mid, d)
         elif isinstance(m, torch.nn.BatchNorm2d) or isinstance(m, torch.nn.BatchNorm3d):
             # For batchnorm bf16 path, OneDNN requires weight and bias need fp32 dtype.
             # so it doesn't need dtype argument.
-            return SecureMkldnnBatchNorm(m)
+            return SecureMkldnnBatchNorm(m, key, mid)
         else:
             return m
 
-    def m_fn_rec(m, d):
-        new_m = m_fn(m, d)
+    def m_fn_rec(m, key, mid, d):
+        new_m = m_fn(m, key, mid, d)
         for name, sub_m in m.named_children():
-            setattr(new_m, name, m_fn_rec(sub_m, d))
+            setattr(new_m, name, m_fn_rec(sub_m, key, mid, d))
         return new_m
 
-    return m_fn_rec(module, dtype)
+    return m_fn_rec(module, key, model_id, dtype)

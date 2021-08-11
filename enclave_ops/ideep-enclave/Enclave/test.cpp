@@ -139,11 +139,11 @@ extern "C" sgx_status_t ecall_conv_dnnl_function (void* conv_desc, size_t conv_d
                                         void* bias, size_t bias_data_size,
                                         void* dst, size_t dst_data_size,
 					void* weight_iv_mac, size_t weight_meta_size,
-					void* bias_iv_mac, size_t bias_meta_size)
+					void* bias_iv_mac, size_t bias_meta_size,
+					uint32_t model_id)
 {
     dnnl::engine engine2(dnnl::engine::kind::cpu, 0);
-//    printf("hyhy call conv in sgx\n");
-
+    //printf("hyhy call conv in sgx\n");
     // Create dnnl::stream.
     dnnl::stream engine_stream(engine2);
 
@@ -170,14 +170,14 @@ extern "C" sgx_status_t ecall_conv_dnnl_function (void* conv_desc, size_t conv_d
 
     auto decrypt_weight_handle = user_weights_mem.get_data_handle();
     auto decrypt_weight_bytes = user_weights_mem.get_desc().get_size();
-    auto ret = AESGCM_decrypt_tensor(decrypt_weight_handle, decrypt_weight_bytes, weight_iv_mac, weight_meta_size);
+    auto ret = AESGCM_decrypt_tensor(decrypt_weight_handle, decrypt_weight_bytes, weight_iv_mac, weight_meta_size, model_id);
     if (ret != SGX_SUCCESS)
         return ret;
 
     if (with_bias) {
         auto decrypt_bias_handle = user_bias_mem.get_data_handle();
         auto decrypt_bias_bytes = user_bias_mem.get_desc().get_size();
-        ret = AESGCM_decrypt_tensor(decrypt_bias_handle, decrypt_bias_bytes, bias_iv_mac, bias_meta_size);
+        ret = AESGCM_decrypt_tensor(decrypt_bias_handle, decrypt_bias_bytes, bias_iv_mac, bias_meta_size, model_id);
         if (ret != SGX_SUCCESS)
             return ret;
     }
@@ -255,7 +255,8 @@ extern "C" sgx_status_t ecall_inner_product_dnnl_function (void* inner_product_d
                                         void* bias, size_t bias_data_size,
                                         void* dst, size_t dst_data_size,
                                         void* weight_iv_mac, size_t weight_meta_size,
-                                        void* bias_iv_mac, size_t bias_meta_size)
+                                        void* bias_iv_mac, size_t bias_meta_size,
+					uint32_t model_id)
 {
 
     dnnl::engine engine(dnnl::engine::kind::cpu, 0);
@@ -287,13 +288,13 @@ extern "C" sgx_status_t ecall_inner_product_dnnl_function (void* inner_product_d
     //printf("################2");
     auto decrypt_weight_handle = user_weights_mem.get_data_handle();
     auto decrypt_weight_bytes = user_weights_mem.get_desc().get_size();
-    auto ret = AESGCM_decrypt_tensor(decrypt_weight_handle, decrypt_weight_bytes, weight_iv_mac, weight_meta_size);
+    auto ret = AESGCM_decrypt_tensor(decrypt_weight_handle, decrypt_weight_bytes, weight_iv_mac, weight_meta_size, model_id);
     if (ret != SGX_SUCCESS)
         return ret;
     if (with_bias) {
         auto decrypt_bias_handle = user_bias_mem.get_data_handle();
 	auto decrypt_bias_bytes = user_bias_mem.get_desc().get_size();
-        ret = AESGCM_decrypt_tensor(decrypt_bias_handle, decrypt_bias_bytes, bias_iv_mac, bias_meta_size);
+        ret = AESGCM_decrypt_tensor(decrypt_bias_handle, decrypt_bias_bytes, bias_iv_mac, bias_meta_size, model_id);
 	if (ret != SGX_SUCCESS)
             return ret;
     }
@@ -353,7 +354,10 @@ extern "C" sgx_status_t ecall_batch_norm_dnnl_function (void* batch_norm_desc, s
                                         size_t scale_data_size, size_t shift_data_size,
                                         void* dst, size_t dst_data_size,
 					void* scale_iv_mac, size_t scale_meta_size,
-					void* shift_iv_mac, size_t shift_meta_size)
+					void* shift_iv_mac, size_t shift_meta_size,
+					void* mean_iv_mac, size_t mean_meta_size,
+					void* var_iv_mac, size_t var_meta_size,
+					uint32_t model_id)
 {
     dnnl::engine engine(dnnl::engine::kind::cpu, 0);
 
@@ -373,10 +377,16 @@ extern "C" sgx_status_t ecall_batch_norm_dnnl_function (void* batch_norm_desc, s
     auto batch_norm_scale_shift = dnnl::memory(batch_norm_pd.weights_desc(), engine, scale_shift);
 
     auto scale_handle = batch_norm_scale_shift.get_data_handle();
-    auto ret = AESGCM_decrypt_tensor(scale_handle, scale_data_size, scale_iv_mac, scale_meta_size);
+    auto ret = AESGCM_decrypt_tensor(scale_handle, scale_data_size, scale_iv_mac, scale_meta_size, model_id);
     if (ret != SGX_SUCCESS)
         return ret;
-    ret = AESGCM_decrypt_tensor(scale_handle + scale_data_size, shift_data_size, shift_iv_mac, shift_meta_size);
+    ret = AESGCM_decrypt_tensor(scale_handle + scale_data_size, shift_data_size, shift_iv_mac, shift_meta_size, model_id);
+    if (ret != SGX_SUCCESS)
+        return ret;
+    ret = AESGCM_decrypt_tensor(mean_handle, mean_data_size, mean_iv_mac, mean_meta_size, model_id);
+    if (ret != SGX_SUCCESS)
+        return ret;
+    ret = AESGCM_decrypt_tensor(var_handle, var_data_size, var_iv_mac, var_meta_size, model_id);
     if (ret != SGX_SUCCESS)
         return ret;
 

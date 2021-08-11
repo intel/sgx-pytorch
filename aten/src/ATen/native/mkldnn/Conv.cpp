@@ -51,7 +51,8 @@ ideep::tensor mkldnn_secure_convolution(
     void* iv,
     size_t iv_size,
     void* mac,
-    size_t mac_size) {
+    size_t mac_size,
+    void* model_id) {
 
   auto kernel_size = w.get_dims();
 
@@ -61,7 +62,6 @@ ideep::tensor mkldnn_secure_convolution(
 
   auto& ctx = at::globalContext();
   sgx_enclave_id_t eid = ctx.getEid();
-
   ideep::tensor y;
   if (b.has_value()) {
     ideep::convolution_forward::compute(
@@ -79,6 +79,7 @@ ideep::tensor mkldnn_secure_convolution(
 	iv_size,
 	mac,
 	mac_size,
+	model_id,
 	&eid);
   } else {
     ideep::convolution_forward::compute(
@@ -95,6 +96,7 @@ ideep::tensor mkldnn_secure_convolution(
 	iv_size,
 	mac,
 	mac_size,
+	model_id,
 	&eid);
   }
   ctx.setEid(eid);

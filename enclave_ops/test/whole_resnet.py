@@ -72,7 +72,7 @@ print("--- %s seconds ---" % (end_time_mkldnn - start_time_mkldnn))
 input("press any key to start secure op...")
 
 
-model = secure_mkldnn.to_secure_mkldnn(model)
+model = secure_mkldnn.to_secure_mkldnn(model, model_id=(0).to_bytes(4, byteorder = 'little'))
 start_time_mkldnn = time.time()
 output = model(input_batch)
 end_time_mkldnn =  time.time()

@@ -34,23 +34,30 @@ ideep::tensor mkldnn_secure_batch_norm(
     const ideep::tensor& input,
     const ideep::tensor& weight,
     const ideep::tensor& bias,
-    const Tensor& running_mean,
-    const Tensor& running_var,
+    const ideep::tensor& running_mean,
+    const ideep::tensor& running_var,
     bool train,
     double momentum,
     double eps,
     void* weight_iv_mac,
     size_t weight_meta_size,
     void* bias_iv_mac,
-    size_t bias_meta_size) {
+    size_t bias_meta_size,
+    void* mean_iv_mac,
+    size_t mean_meta_size,
+    void* var_iv_mac,
+    size_t var_meta_size,
+    void* model_id) {
   //ideep::tensor& x = itensor_from_mkldnn(input);
   //ideep::tensor& w = itensor_from_mkldnn(weight);
   //ideep::tensor& b = itensor_from_mkldnn(bias);
   auto x = input;
   auto w = weight;
   auto b = bias;
-  ideep::tensor m = itensor_from_tensor(running_mean);
-  ideep::tensor v = itensor_from_tensor(running_var);
+  auto m = running_mean;
+  auto v = running_var;
+  //ideep::tensor m = itensor_from_tensor(running_mean);
+  //ideep::tensor v = itensor_from_tensor(running_var);
 
   ideep::tensor y;
 
@@ -62,7 +69,7 @@ ideep::tensor mkldnn_secure_batch_norm(
   sgx_enclave_id_t eid = ctx.getEid();
 
   ideep::batch_normalization_forward_inference::compute(
-      x, m, v, w, b, y, eps, weight_iv_mac, weight_meta_size, bias_iv_mac, bias_meta_size, &eid);
+      x, m, v, w, b, y, eps, weight_iv_mac, weight_meta_size, bias_iv_mac, bias_meta_size, mean_iv_mac, mean_meta_size, var_iv_mac, var_meta_size, model_id, &eid);
 
   ctx.setEid(eid);
   return y;

@@ -109,6 +109,22 @@ torch::Tensor secure_linear(
     uint8_t bias_iv_mac[IV_MAC_BYTE];
     memcpy(bias_iv_mac, &bias_handle[bias_dimension+1+RESERVED_LENGTH], sizeof(bias_iv_mac));
     
+    uint32_t weight_model_id;
+    uint32_t bias_model_id;
+    uint32_t model_id;
+    memcpy(&weight_model_id, &weight_handle[weight_dimension+2], sizeof(weight_model_id));
+    memcpy(&bias_model_id, &bias_handle[bias_dimension+2], sizeof(bias_model_id));
+
+    if (weight_model_id == bias_model_id){
+	model_id = weight_model_id;
+    }
+    else {
+        std::ostringstream ss;
+        ss << "weight_model_id and bias_model_id not equal ";
+        AT_ERROR(ss.str());
+    }
+
+
     ideep::tensor mkldnn_output = at::native::mkldnn_secure_linear(
       mkldnn_input,
       mkldnn_weight,
@@ -116,7 +132,8 @@ torch::Tensor secure_linear(
       (void*)weight_iv_mac,
       IV_MAC_BYTE,
       (void*)bias_iv_mac,
-      IV_MAC_BYTE);
+      IV_MAC_BYTE,
+      (void*)&model_id);
     /*size_t bytes;
     bytes = mkldnn_output.get_desc().get_size();
     float *output_data = static_cast<float *>(mkldnn_output.get_data_handle());
@@ -211,6 +228,19 @@ torch::Tensor secure_conv(
     uint8_t bias_iv_mac[IV_MAC_BYTE];
     memcpy(bias_iv_mac, &bias_handle[bias_dimension+1+RESERVED_LENGTH], sizeof(bias_iv_mac));
 
+    uint32_t weight_model_id;
+    uint32_t bias_model_id;
+    uint32_t model_id;
+    memcpy(&weight_model_id, &weight_handle[weight_dimension+2], sizeof(weight_model_id));
+    memcpy(&bias_model_id, &bias_handle[bias_dimension+2], sizeof(bias_model_id));
+    if (weight_model_id == bias_model_id){
+        model_id = weight_model_id;
+    }
+    else {
+        std::ostringstream ss;
+        ss << "weight_model_id and bias_model_id not equal ";
+        AT_ERROR(ss.str());
+    }
 
     ideep::tensor mkldnn_output = at::native::mkldnn_secure_convolution(
       mkldnn_input,
@@ -223,7 +253,8 @@ torch::Tensor secure_conv(
       (void*)weight_iv_mac,
       IV_MAC_BYTE,
       (void*)bias_iv_mac,
-      IV_MAC_BYTE);
+      IV_MAC_BYTE,
+      (void*)&model_id);
 
     return  at::native::mkldnn_to_dense(
         at::native::new_with_itensor_mkldnn(std::move(mkldnn_output), optTypeMetaToScalarType(input.options().dtype_opt()),
@@ -254,6 +285,7 @@ torch::Tensor secure_batch_norm(
     c10::IntArrayRef weight_size(weight_dims);
     auto weight_empty = torch::empty(weight_size, torch::kFloat);
 
+
     auto bias = bias_r;
     std::vector<int64_t> bias_dims;
     uint32_t bias_dimension = bias[0].item<int32_t>();
@@ -266,41 +298,98 @@ torch::Tensor secure_batch_norm(
     c10::IntArrayRef bias_size(bias_dims);
     auto bias_empty = torch::empty(bias_size, torch::kFloat);
 
+
     //int64_t dim = dimension - 2;
     //auto weight;
     auto running_mean = running_mean_r;
+    std::vector<int64_t> running_mean_dims;
+    uint32_t running_mean_dimension = running_mean[0].item<int32_t>();
+    int running_mean_amount = 1;
+    for (int i=1; i<=running_mean_dimension; i++) {
+        running_mean_dims.push_back(running_mean[i].item<int32_t>());
+	running_mean_amount *= running_mean[i].item<int>();
+    }
+
+    c10::IntArrayRef running_mean_size(running_mean_dims);
+    auto running_mean_empty = torch::empty(running_mean_size, torch::kFloat);
+
+
     auto running_var = running_var_r;
+    std::vector<int64_t> running_var_dims;
+    uint32_t running_var_dimension = running_var[0].item<int32_t>();
+    int running_var_amount = 1;
+    for (int i=1; i<=running_var_dimension; i++) {
+        running_var_dims.push_back(running_var[i].item<int32_t>());
+	running_var_amount *= running_var[i].item<int>();
+    }
+
+    c10::IntArrayRef running_var_size(running_var_dims);
+    auto running_var_empty = torch::empty(running_var_size, torch::kFloat);
+
+
     auto momentum = momentum_r;
     auto eps = eps_r;
 
     auto weight_handle = weight.data_ptr<int>();
     auto bias_handle = bias.data_ptr<int>();
+    auto running_mean_handle = running_mean.data_ptr<int>();
+    auto running_var_handle = running_var.data_ptr<int>();
 
     auto data_type = at::ScalarType::Float;
     const ideep::tensor mkldnn_weight = at::native::itensor_from_tensor(weight_empty.contiguous());
     memcpy(mkldnn_weight.get_data_handle(), &weight_handle[weight_dimension+1+IV_MAC_LENGTH+RESERVED_LENGTH], (weight_amount*sizeof(int)));
     const ideep::tensor mkldnn_bias = at::native::itensor_from_tensor(bias_empty.contiguous());
     memcpy(mkldnn_bias.get_data_handle(), &bias_handle[bias_dimension+1+IV_MAC_LENGTH+RESERVED_LENGTH], (bias_amount*sizeof(int)));
+
     const ideep::tensor mkldnn_input = at::native::itensor_from_tensor(input.contiguous());
+
+    const ideep::tensor mkldnn_running_mean = at::native::itensor_from_tensor(running_mean_empty.contiguous());
+    memcpy(mkldnn_running_mean.get_data_handle(), &running_mean_handle[running_mean_dimension+1+IV_MAC_LENGTH+RESERVED_LENGTH], (running_mean_amount*sizeof(int)));
+    const ideep::tensor mkldnn_running_var = at::native::itensor_from_tensor(running_var_empty.contiguous());
+    memcpy(mkldnn_running_var.get_data_handle(), &running_var_handle[running_var_dimension+1+IV_MAC_LENGTH+RESERVED_LENGTH], (running_var_amount*sizeof(int)));
 
     uint8_t weight_iv_mac[IV_MAC_BYTE];
     memcpy(weight_iv_mac, &weight_handle[weight_dimension+1+RESERVED_LENGTH], sizeof(weight_iv_mac));
     uint8_t bias_iv_mac[IV_MAC_BYTE];
     memcpy(bias_iv_mac, &bias_handle[bias_dimension+1+RESERVED_LENGTH], sizeof(bias_iv_mac));
+    uint8_t running_mean_iv_mac[IV_MAC_BYTE];
+    memcpy(running_mean_iv_mac, &running_mean_handle[running_mean_dimension+1+RESERVED_LENGTH], sizeof(running_mean_iv_mac));
+    uint8_t running_var_iv_mac[IV_MAC_BYTE];
+    memcpy(running_var_iv_mac, &running_var_handle[running_var_dimension+1+RESERVED_LENGTH], sizeof(running_var_iv_mac));
     
+    uint32_t weight_model_id;
+    uint32_t bias_model_id;
+    uint32_t model_id;
+    memcpy(&weight_model_id, &weight_handle[weight_dimension+2], sizeof(weight_model_id));
+    memcpy(&bias_model_id, &bias_handle[bias_dimension+2], sizeof(bias_model_id));
+
+    if (weight_model_id == bias_model_id){
+        model_id = weight_model_id;
+    }
+    else {
+        std::ostringstream ss;
+        ss << "weight_model_id and bias_model_id not equal ";
+        AT_ERROR(ss.str());
+    }
+
     auto mkldnn_output = at::native::mkldnn_secure_batch_norm(
       mkldnn_input,
       mkldnn_weight,
       mkldnn_bias,
-      running_mean,
-      running_var,
+      mkldnn_running_mean,
+      mkldnn_running_var,
       false,
       momentum,
       eps,
       (void*)weight_iv_mac,
       IV_MAC_BYTE,
       (void*)bias_iv_mac,
-      IV_MAC_BYTE);
+      IV_MAC_BYTE,
+      (void*)running_mean_iv_mac,
+      IV_MAC_BYTE,
+      (void*)running_var_iv_mac,
+      IV_MAC_BYTE,
+      (void*)&model_id);
 
     /*size_t bytes;
     bytes = mkldnn_output.get_desc().get_size();
