@@ -114,7 +114,8 @@ static void Connect()
         }
         else {
             printf("Fail to connect socket server.\n");
-            return;
+            close(sockFd);
+           return;
         }
     } while (retry_count-- > 0);
 

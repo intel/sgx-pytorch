@@ -84,7 +84,7 @@ printf("ocall to get key, key_blob_len is %d.\n", key_blob_len);
 
     uint32_t dec_key_size = sgx_get_encrypt_txt_len((sgx_sealed_data_t *)key_blob);
     if (dec_key_size == UINT32_MAX || dec_key_size != 16) {
-        printf("dec_key_size size:%d is not expected: %d.\n", dec_key_size, sizeof(sgx_key_128bit_t));
+        printf("dec_key_size size:%lu is not expected: %u.\n", dec_key_size, sizeof(sgx_key_128bit_t));
         return SGX_ERROR_INVALID_PARAMETER;
     }
 
