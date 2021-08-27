@@ -214,7 +214,8 @@ printf("YYY--resp->size=%d\n", resp->size);
 }
 
 static int32_t SendErrResponse(int32_t sockfd, int8_t type, int8_t err) {
-    ra_samp_response_header_t  p_err_resp_full = {0};
+    ra_samp_response_header_t  p_err_resp_full;
+    memset(&p_err_resp_full, 0, sizeof(ra_samp_response_header_t));
 
     p_err_resp_full.type = type;
     p_err_resp_full.status[0] = err;
@@ -263,7 +264,7 @@ int32_t SocketDispatchCmd(ra_samp_request_header_t *req,
     default:
         printf("Cannot dispatch unknown msg type %d\n", req->type);
         return ERR_NOT_IMPLEMENTED;
-    } 
+    }
 
     return ret;
 }
@@ -273,8 +274,8 @@ int32_t SocketDispatchCmd(ra_samp_request_header_t *req,
 */
 static void* SocketMsgHandler(void *sock_addr)
 {
-    ra_samp_request_header_t *req;
-    ra_samp_response_header_t *resp;
+    ra_samp_request_header_t *req = NULL;
+    ra_samp_response_header_t *resp = NULL;
  
     uint32_t req_size;
 
@@ -303,7 +304,7 @@ static void* SocketMsgHandler(void *sock_addr)
         }
 
         ret = SocketDispatchCmd(req, &resp);
-        if (ret < 0) {
+        if (ret < 0 || !resp) {
             printf("failed(%d) to handle msg type(%d)\n", ret, req->type);
             SendErrResponse(sockfd, req->type, ret);
             continue;
@@ -312,9 +313,11 @@ static void* SocketMsgHandler(void *sock_addr)
         SendResponse(sockfd, resp);
 
         SAFE_FREE(req);
+	SAFE_FREE(resp);
     }
 
     SAFE_FREE(req);
+    SAFE_FREE(resp);
 
     return 0;
 }
@@ -397,7 +400,7 @@ static int RaSetupSecureChannel() {
     FILE* OUTPUT = stdout;
 
     sgx_att_key_id_t selected_key_id = {0}; //acutally not used in our case
-    
+
     do {
         ret = enclave_init_ra(g_enclave_id,
                           &status,
@@ -671,15 +674,16 @@ void Connect() {
 
     do {
         if (connect(sockFd, (struct sockaddr*)&serAddr, sizeof(serAddr)) >= 0) {
-            fprintf(stderr, "Connect socket server suucess!\n");
+            printf("Connect socket server success!\n");
             break;
         }
         else if (retry_count > 0) {
-            fprintf(stderr, "Connect socket server failed, sleep 0.5s and try again...\n");
+            printf("Connect socket server failed, sleep 0.5s and try again...\n");
             usleep(500000); // 0.5 s
         }
         else {
-            fprintf(stderr, "Fail to connect socket server.\n");
+            printf("Fail to connect socket server.\n");
+	    close(sockFd);
             return;
         }
     } while (retry_count-- > 0);
@@ -724,6 +728,7 @@ void Initialize() {
     /* Bind the server socket */
     if ((ret = bind(listenfd,(struct sockaddr *)&serAddr , sizeof(serAddr))) < 0) {
         printf("bind failed(%d)\n", ret);
+	close(listenfd);
         return;
     }
 
@@ -739,6 +744,7 @@ void Initialize() {
         ret = RaSetupSecureChannel();
         if (ret != SGX_SUCCESS) {
             printf("failed(%d) to setup the secure channel.\n", ret);
+            close(listenfd);
             return;
         }
         g_securechannel_ready = true;
@@ -755,8 +761,10 @@ void Initialize() {
         }
 
         char *ipaddr = hexToCharIP(cliAddr.sin_addr);
-        if (ipaddr)
+        if (ipaddr) {
             printf("New Client(%d) connected! IP=%s\n", connfd, ipaddr);
+	    free(ipaddr);
+	}
 
         pthread_t sniffer_thread;
         if (pthread_create(&sniffer_thread, NULL, SocketMsgHandler, (void *)&connfd) < 0) {
