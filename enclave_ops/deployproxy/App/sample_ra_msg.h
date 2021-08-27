@@ -55,13 +55,13 @@ typedef enum _ra_msg_type_t
 }ra_msg_type_t;
 
 
-#define SAMPLE_SP_TAG_SIZE          16
-#define ISVSVN_SIZE 2
-#define PSDA_SVN_SIZE 4
-#define GID_SIZE 4
-#define PSVN_SIZE 18
+#define SAMPLE_SP_TAG_SIZE   16
+#define ISVSVN_SIZE          2
+#define PSDA_SVN_SIZE        4
+#define GID_SIZE             4
+#define PSVN_SIZE            18
 
-#define SGX_DOMAIN_KEY_SIZE     16
+#define SGX_DOMAIN_KEY_SIZE  16
 
 #pragma pack(push,1)
 
@@ -86,7 +86,7 @@ typedef struct ias_platform_info_blob_t
 
 typedef struct sample_ra_att_result_msg_t {
     ias_platform_info_blob_t    platform_info_blob;
-    sgx_mac_t                mac;    /* mac_smk(attestation_status)*/
+    sgx_mac_t                   mac;    /* mac_smk(attestation_status)*/
     sp_aes_gcm_data_t           secret;
 } sample_ra_att_result_msg_t;
 
@@ -99,7 +99,7 @@ typedef struct _ra_samp_request_header_t{
     uint8_t  type;     /* set to one of ra_msg_type_t*/
     uint32_t size;     /*size of request body*/
     uint8_t  align[3];
-    uint8_t body[];
+    uint8_t  body[];
 } ra_samp_request_header_t;
 
 typedef struct _ra_samp_response_header_t{

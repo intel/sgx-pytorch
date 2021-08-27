@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ namespace socket_client {
 void PRINT_BYTE_ARRAY(
     FILE *file, void *mem, uint32_t len)
 {
-    if(!mem || !len)
+    if (!mem || !len)
     {
         fprintf(file, "\n( null )\n");
         return;
@@ -71,7 +71,7 @@ void PRINT_BYTE_ARRAY(
     uint8_t *array = (uint8_t *)mem;
     fprintf(file, "%u bytes:\n{\n", len);
     uint32_t i = 0;
-    for(i = 0; i < len - 1; i++)
+    for (i = 0; i < len - 1; i++)
     {
         fprintf(file, "0x%x, ", array[i]);
         if(i % 8 == 7) fprintf(file, "\n");
@@ -85,7 +85,7 @@ void PRINT_ATTESTATION_SERVICE_RESPONSE(
     FILE *file,
     ra_samp_response_header_t *response)
 {
-    if(!response)
+    if (!response)
     {
         fprintf(file, "\t\n( null )\n");
         return;
@@ -96,7 +96,7 @@ void PRINT_ATTESTATION_SERVICE_RESPONSE(
             response->status[1]);
     fprintf(file, "RESPONSE BODY SIZE: %u\n", response->size);
 
-    if(response->type == TYPE_RA_MSG2)
+    if (response->type == TYPE_RA_MSG2)
     {
         sgx_ra_msg2_t* p_msg2_body = (sgx_ra_msg2_t*)(response->body);
 
@@ -121,7 +121,7 @@ void PRINT_ATTESTATION_SERVICE_RESPONSE(
         PRINT_BYTE_ARRAY(file, &(p_msg2_body->sig_rl),
                          p_msg2_body->sig_rl_size);
     }
-    else if(response->type == TYPE_RA_ATT_RESULT)
+    else if (response->type == TYPE_RA_ATT_RESULT)
     {
         sample_ra_att_result_msg_t *p_att_result =
             (sample_ra_att_result_msg_t *)(response->body);
@@ -225,7 +225,7 @@ errno_t memcpy_s(
     const void *src,
     size_t count)
 {
-    if(numberOfElements<count)
+    if (numberOfElements<count)
         return -1;
     memcpy(dest, src, count);
     return 0;
@@ -240,7 +240,7 @@ static char* hexToCharIP(struct in_addr addrIP)
     int b = (intIP >> 16) & 0xFF;
     int c = (intIP >> 8) & 0xFF;
     int d = intIP & 0xFF;
-    if((ip = (char*)malloc(16*sizeof(char))) == NULL) {
+    if ((ip = (char*)malloc(16*sizeof(char))) == NULL) {
         return NULL;
     }
     sprintf(ip, "%d.%d.%d.%d", d,c,b,a);
@@ -325,11 +325,8 @@ int32_t SendAndRecvMsg(
     int req_size, resp_size = 0;
     int32_t err = NO_ERROR;
 
-    if((NULL == p_req) ||
-        (NULL == p_resp))
-    {
+    if((NULL == p_req) || (NULL == p_resp))
         return -1;
-    }
 
     /* Send a message to server */
     req_size = sizeof(ra_samp_request_header_t)+p_req->size;
@@ -339,6 +336,7 @@ int32_t SendAndRecvMsg(
         err = ERR_GENERIC;
         goto out;
     }
+
     if (!SendAll(g_deploy_sock, p_req, req_size)) {
         fprintf(stderr, "send req buffer failed\n");
         err = ERR_GENERIC;
@@ -357,12 +355,14 @@ int32_t SendAndRecvMsg(
         err = ERR_GENERIC;
         goto out;
     }
+
     out_msg = (ra_samp_response_header_t *)malloc(resp_size);
     if (!out_msg) {
         fprintf(stderr, "allocate out_msg failed\n");
         err = ERR_NO_MEMORY;
         goto out;
     }
+
     if (!RecvAll(g_deploy_sock, out_msg, resp_size)) {
         fprintf(stderr, "failed to get the data\n");
         err = ERR_GENERIC;
@@ -370,6 +370,7 @@ int32_t SendAndRecvMsg(
     }
 
     *p_resp = out_msg;
+
 out:
     return err;
 }
@@ -403,7 +404,7 @@ static int RaSetupSecureChannel() {
      //Ideally, this check would be around the full attestation flow.
     } while (SGX_ERROR_ENCLAVE_LOST == ret && enclave_lost_retry_time--);
 
-    if(SGX_SUCCESS != ret || status) {
+    if (SGX_SUCCESS != ret || status) {
         ret = -1;
         fprintf(OUTPUT, "Error, call enclave_init_ra failed.\n");
         goto CLEANUP;
@@ -413,7 +414,7 @@ static int RaSetupSecureChannel() {
     p_msg1_full = (ra_samp_request_header_t*)
                  malloc(sizeof(ra_samp_request_header_t)
                         + sizeof(sgx_ra_msg1_t));
-    if(NULL == p_msg1_full) {
+    if (NULL == p_msg1_full) {
         ret = -1;
         goto CLEANUP;
     }
@@ -428,7 +429,7 @@ static int RaSetupSecureChannel() {
         //sleep(3); // Wait 3s between retries
     } while (SGX_ERROR_BUSY == ret && busy_retry_time--);
 
-    if(SGX_SUCCESS != ret) {
+    if (SGX_SUCCESS != ret) {
         fprintf(OUTPUT, "Error, call sgx_ra_get_msg1_ex failed(%#x)\n", ret);
         ret = -1;
         goto CLEANUP;
@@ -437,14 +438,14 @@ static int RaSetupSecureChannel() {
 
     fprintf(OUTPUT, "Sending MSG1 to remote attestation service provider, and expecting MSG2 back...\n");
     SendAndRecvMsg(p_msg1_full, &p_msg2_full);
-    if(!p_msg2_full) {
+    if (!p_msg2_full) {
         fprintf(OUTPUT, "Error,sending MSG1 failed.\n");
         ret = -1;
         goto CLEANUP;
     }
 
     /* Successfully sent MSG1 and received a MSG2 back. */
-    if(TYPE_RA_MSG2 != p_msg2_full->type) {
+    if (TYPE_RA_MSG2 != p_msg2_full->type) {
         fprintf(OUTPUT, "Error, MSG2's type is not matched!\n");
         ret = -1;
         goto CLEANUP;
@@ -469,7 +470,8 @@ static int RaSetupSecureChannel() {
                            &p_msg3,
                            &msg3_size);
     } while (SGX_ERROR_BUSY == ret && busy_retry_time--);
-    if(!p_msg3 || (SGX_SUCCESS != (sgx_status_t)ret)) {
+
+    if (!p_msg3 || (SGX_SUCCESS != (sgx_status_t)ret)) {
         fprintf(OUTPUT, "Error(%d), call sgx_ra_proc_msg2_ex failed, p_msg3 = 0x%p.", ret, p_msg3);
         goto CLEANUP;
     }
@@ -478,13 +480,14 @@ static int RaSetupSecureChannel() {
     //PRINT_BYTE_ARRAY(OUTPUT, p_msg3, msg3_size);
 
     p_msg3_full = (ra_samp_request_header_t*)malloc(sizeof(ra_samp_request_header_t) + msg3_size);
-    if(NULL == p_msg3_full) {
+    if (NULL == p_msg3_full) {
         ret = -1;
         goto CLEANUP;
     }
+
     p_msg3_full->type = TYPE_RA_MSG3;
     p_msg3_full->size = msg3_size;
-    if(memcpy_s(p_msg3_full->body, msg3_size, p_msg3, msg3_size)) {
+    if (memcpy_s(p_msg3_full->body, msg3_size, p_msg3, msg3_size)) {
         fprintf(OUTPUT,"Error: memcpy failed\n.");
         ret = -1;
         goto CLEANUP;
@@ -501,16 +504,15 @@ static int RaSetupSecureChannel() {
     fprintf(OUTPUT, "Sending MSG3 to remote attestation service provider,"
                         "expecting attestation result msg back...\n");
     SendAndRecvMsg(p_msg3_full, &p_att_result_msg_full);
-    if(ret || !p_att_result_msg_full) {
+    if (ret || !p_att_result_msg_full) {
         ret = -1;
         fprintf(OUTPUT, "Error, sending MSG3 failed\n.");
         goto CLEANUP;
     }
 
-
     p_att_result_msg_body = (sample_ra_att_result_msg_t *)((uint8_t*)p_att_result_msg_full
                            + sizeof(ra_samp_response_header_t));
-    if(TYPE_RA_ATT_RESULT != p_att_result_msg_full->type) {
+    if (TYPE_RA_ATT_RESULT != p_att_result_msg_full->type) {
         ret = -1;
         fprintf(OUTPUT, "Error, the attestaion MSG's type is not matched!\n");
         goto CLEANUP;
@@ -530,8 +532,7 @@ static int RaSetupSecureChannel() {
             sizeof(ias_platform_info_blob_t),
             (uint8_t*)&p_att_result_msg_body->mac,
             sizeof(sgx_mac_t));
-    if((SGX_SUCCESS != ret) ||
-       (SGX_SUCCESS != status)) {
+    if ((SGX_SUCCESS != ret) || (SGX_SUCCESS != status)) {
         ret = -1;
         fprintf(OUTPUT, "Error: Attestation result MSG's MK based cmac check failed\n");
         goto CLEANUP;
@@ -545,20 +546,21 @@ static int RaSetupSecureChannel() {
                           p_att_result_msg_body->secret.payload,
                           p_att_result_msg_body->secret.payload_size,
                           p_att_result_msg_body->secret.payload_tag);
-    if((SGX_SUCCESS != ret)  || (SGX_SUCCESS != status)) {
+    if ((SGX_SUCCESS != ret) || (SGX_SUCCESS != status)) {
         fprintf(OUTPUT, "Error(%d), decrypt secret using SK based on AES-GCM failed.\n", ret);
         ret = -1;
         goto CLEANUP;
     }
 
     fprintf(OUTPUT, "Successfully received the DomainKey from deploy server.");
+
 CLEANUP:
     // Clean-up
     // Need to close the RA key state.
-    if(INT_MAX != context) {
+    if (INT_MAX != context) {
         int ret_save = ret;
         ret = enclave_ra_close(g_enclave_id, &status, context);
-        if(SGX_SUCCESS != ret || status) {
+        if (SGX_SUCCESS != ret || status) {
             fprintf(OUTPUT, "\nError, call enclave_ra_close fail [%#x].\n",ret);
         }
         else {
@@ -590,7 +592,7 @@ int RetreiveDomainKey(const ra_samp_request_header_t *req,
     uint32_t blob_size = 0;
     uint32_t resp_size = 0;
 
-    if(!req || !p_resp) {
+    if (!req || !p_resp) {
         return -1;
     }
 
@@ -608,7 +610,7 @@ int RetreiveDomainKey(const ra_samp_request_header_t *req,
                 NULL,
                 0,
                 &(blob_size));
-    if(SGX_SUCCESS != ret || status) {
+    if (SGX_SUCCESS != ret || status) {
         printf("failed(%d) to get the blob size\n", ret);
         ret = -1;
         goto out;
@@ -629,20 +631,20 @@ int RetreiveDomainKey(const ra_samp_request_header_t *req,
     p_resp_full->status[1] = 0;
     p_dk = (sample_key_blob_t *)p_resp_full->body;
     p_dk->blob_size = blob_size;
-    printf("YYY--p_resp_full->size=%d\n", p_resp_full->size);
+printf("YYY--p_resp_full->size=%d\n", p_resp_full->size);
 
     ret = enclave_get_domainkey(g_enclave_id, &status,
                 p_dk->blob,
                 p_dk->blob_size,
                 NULL);
-    if(SGX_SUCCESS != ret || status) {
+    if (SGX_SUCCESS != ret || status) {
         printf("failed(%d) to get the domainkey, status=%d\n", ret, status);
         ret = -1;
         goto out;
     }
 
 out:
-    if(ret) {
+    if (ret) {
         *p_resp = NULL;
         SAFE_FREE(p_resp_full);
     }
@@ -655,12 +657,12 @@ out:
 
 
 void Connect() {
-    int32_t retry_count = 360;
+    int32_t retry_count = 60;
     struct sockaddr_in serAddr;
     int32_t sockFd = -1;
 
     sockFd = socket(AF_INET, SOCK_STREAM, 0);
-    if(sockFd < 0) {
+    if (sockFd < 0) {
         fprintf(stderr, "Create socket failed\n");
         exit(1);
     }
@@ -670,7 +672,7 @@ void Connect() {
     serAddr.sin_addr.s_addr = inet_addr(deploy_ip_addr);
 
     do {
-        if(connect(sockFd, (struct sockaddr*)&serAddr, sizeof(serAddr)) >= 0) {
+        if (connect(sockFd, (struct sockaddr*)&serAddr, sizeof(serAddr)) >= 0) {
             fprintf(stderr, "Connect socket server suucess!\n");
             break;
         }
@@ -689,13 +691,12 @@ void Connect() {
 
 void DisConnect() {
     close(g_deploy_sock);
+    g_deploy_sock = -1;
+    g_securechannel_ready = false;
 }
 
 bool IsConnected()  {
-    if (g_deploy_sock > 0)
-        return true;
-    else
-        return false;
+    return (g_deploy_sock > 0);
 }
 
 void Initialize() {
@@ -730,7 +731,7 @@ void Initialize() {
     while (true) {
         /* Accept and incoming connection */
         connfd = accept(listenfd, (struct sockaddr *)&cliAddr, &cliAddr_len);
-        if(connfd < 0) {
+        if (connfd < 0) {
             printf("accept error\n");
             break;
         }

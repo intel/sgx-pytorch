@@ -27,13 +27,13 @@ int main(int argc, char* argv[])
                                  NULL,
                                  NULL,
                                  &g_enclave_id, NULL);
-    if(SGX_SUCCESS != ret) {
+    if (SGX_SUCCESS != ret) {
         printf("failed(%d) to create enclave.\n", ret);
         return -1;
     }
 
     /* Connect to the deploy service*/
-    if(!IsConnected()) {
+    if (!IsConnected()) {
         printf("try to connect to the socket server.\n");
         Connect();
     }

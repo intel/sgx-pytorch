@@ -95,7 +95,6 @@ endif
 App_Cpp_Files := $(wildcard App/*.cpp)
 
 App_Include_Paths := \
-	-IInclude \
 	-IApp \
 	-I$(SGX_SDK)/include \
 
@@ -126,7 +125,7 @@ endif
 
 App_Cpp_Objects := $(App_Cpp_Files:.cpp=.o)
 
-App_Name := ehsm-deployproxy
+App_Name := deployproxy
 
 
 ######## Enclave Settings ########
@@ -143,7 +142,6 @@ Crypto_Library_Name := sgx_tcrypto
 Enclave_Cpp_Files := $(wildcard Enclave/*.cpp)
 
 Enclave_Include_Paths := \
-	-IInclude \
 	-IEnclave \
 	-I$(SGX_SDK)/include \
 	-I$(SGX_SDK)/include/tlibc \
