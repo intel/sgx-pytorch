@@ -42,7 +42,8 @@ using namespace std;
 
 namespace socket_client {
 
-const char deploy_ip_addr[] = "10.239.158.138";
+//todo: remove hardcodes
+const char deploy_ip_addr[] = "127.0.0.1";
 const uint32_t deploy_port = 8888;
 const uint32_t provisioning_port = 8887;
 
@@ -77,13 +78,6 @@ void DisConnect();
 bool IsConnected();
 
 void Initialize();
-
-/* Send and Recv msg to/from socket server */
-int SendAndRecvMsg(const ra_samp_request_header_t *req,
-                        ra_samp_response_header_t **p_resp);
-
-int RetreiveDomainKey(const ra_samp_request_header_t *req,
-                    ra_samp_response_header_t **p_resp);
 
 }
 

@@ -54,6 +54,7 @@ enclave {
             size_t mac_size);
 
         public sgx_status_t enclave_get_domainkey(
+            uint32_t model_id,
             [out, size=blob_size] uint8_t *blob, uint32_t blob_size,
             [out] uint32_t *req_blob_size);
 

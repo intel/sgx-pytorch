@@ -72,8 +72,14 @@ static const sgx_ec256_public_t g_sp_pub_key = {
 
 };
 
-// Used to store the secret passed by the SP in the sample code.
-uint8_t g_domain_key[SGX_DOMAIN_KEY_SIZE] = {0};
+/* Shared with deploy server */
+typedef struct {
+    uint32_t model_id;
+    uint8_t key[16];
+} model_key_t;
+
+model_key_t *g_model_keys = NULL;
+uint32_t g_model_keys_size = 0;
 
 void printf(const char *fmt, ...)
 {
@@ -323,7 +329,7 @@ sgx_status_t enclave_verify_att_result_mac(sgx_ra_context_t context,
 }
 
 
-sgx_status_t enclave_get_domainkey(uint8_t *blob, uint32_t blob_size, uint32_t *req_blob_size)
+sgx_status_t enclave_get_domainkey(uint32_t model_id, uint8_t *blob, uint32_t blob_size, uint32_t *req_blob_size)
 {
     sgx_status_t ret = SGX_ERROR_UNEXPECTED;
     uint32_t real_blob_len = sgx_calc_sealed_data_size(0, SGX_DOMAIN_KEY_SIZE);
@@ -340,7 +346,10 @@ sgx_status_t enclave_get_domainkey(uint8_t *blob, uint32_t blob_size, uint32_t *
         return SGX_ERROR_INVALID_PARAMETER;
     }
 
-    ret = sgx_seal_data(0, NULL, SGX_DOMAIN_KEY_SIZE, g_domain_key, blob_size, (sgx_sealed_data_t *)blob);
+    for (int i = 0; i < g_model_keys_size/sizeof(model_key_t); i++) {
+        if (model_id == g_model_keys[i].model_id)
+            ret = sgx_seal_data(0, NULL, SGX_DOMAIN_KEY_SIZE, g_model_keys[i].key, blob_size, (sgx_sealed_data_t *)blob);
+    }
 
     return ret;
 }
@@ -369,20 +378,31 @@ sgx_status_t enclave_store_domainkey (
     uint32_t secret_size,
     uint8_t *p_gcm_mac)
 {
-    sgx_status_t ret = SGX_SUCCESS;
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
     sgx_ec_key_128bit_t sk_key;
     uint32_t i;
 
     do {
-        if(secret_size != SGX_DOMAIN_KEY_SIZE)
+
+        if (secret_size % sizeof(model_key_t) != 0)
         {
             ret = SGX_ERROR_INVALID_PARAMETER;
+            printf("unexpected encalve secret_size is %d.\n", secret_size);
             break;
         }
 
         ret = sgx_ra_get_keys(context, SGX_RA_KEY_SK, &sk_key);
-        if(SGX_SUCCESS != ret)
+        if (SGX_SUCCESS != ret)
         {
+            break;
+        }
+
+        g_model_keys_size = secret_size;
+
+        g_model_keys = (model_key_t*)malloc(secret_size);
+        if (g_model_keys == NULL) {
+            ret = SGX_ERROR_OUT_OF_MEMORY;
+            printf("failed to malloc g_model_keys.\n");
             break;
         }
 
@@ -390,7 +410,7 @@ sgx_status_t enclave_store_domainkey (
         ret = sgx_rijndael128GCM_decrypt(&sk_key,
                                          p_secret,
                                          secret_size,
-                                         g_domain_key,
+                                         (uint8_t*)g_model_keys,
                                          &aes_gcm_iv[0],
                                          12,
                                          NULL,
@@ -402,9 +422,10 @@ sgx_status_t enclave_store_domainkey (
             printf("Failed to decrypt the secret from server\n");
         }
         printf("Decrypt the serect success\n");
-        for (i=0; i<sizeof(g_domain_key); i++) {
-            printf("domain_key[%d]=%2d\n", i, g_domain_key[i]);
-        }
+
+for (int i = 0; i <secret_size; i++)
+printf("hyhyhy %d:%d.\n", i, *((uint8_t*)g_model_keys+i));
+
         // Once the server has the shared secret, it should be sealed to
         // persistent storage for future use. This will prevents having to
         // perform remote attestation until the secret goes stale. Once the

@@ -42,6 +42,12 @@ using namespace std;
 
 namespace socket_server {
 
+typedef struct {
+    uint32_t model_id;
+    uint8_t key[16];
+} model_key_t;
+
+
 const uint32_t server_port = 8888;
 
 #ifndef SAFE_FREE

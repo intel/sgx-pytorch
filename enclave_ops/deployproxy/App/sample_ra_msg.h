@@ -98,6 +98,7 @@ typedef struct sample_key_blob_t {
 typedef struct _ra_samp_request_header_t{
     uint8_t  type;     /* set to one of ra_msg_type_t*/
     uint32_t size;     /*size of request body*/
+    uint32_t model_id;
     uint8_t  align[3];
     uint8_t  body[];
 } ra_samp_request_header_t;

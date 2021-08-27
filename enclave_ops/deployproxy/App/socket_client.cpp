@@ -33,7 +33,8 @@
 #include <error.h>
 #include <limits.h>
 #include <unistd.h>
-
+#include <signal.h>
+#include <iostream>
 #include <enclave_u.h>
 
 // Needed to call untrusted key exchange library APIs, i.e. sgx_ra_proc_msg2.
@@ -57,6 +58,8 @@ sgx_enclave_id_t g_enclave_id;
 
 namespace socket_client {
 
+static int RetreiveDomainKey(const ra_samp_request_header_t *req,
+                ra_samp_response_header_t **p_resp);
 
 // Some utility functions to output some of the data structures passed between
 // the ISV app and the remote attestation service provider.
@@ -247,15 +250,14 @@ static char* hexToCharIP(struct in_addr addrIP)
     return ip;
 }
 
-int32_t SocketDispatchCmd(
-                    ra_samp_request_header_t *req,
-                    ra_samp_response_header_t **p_resp) {
+int32_t SocketDispatchCmd(ra_samp_request_header_t *req,
+                          ra_samp_response_header_t **p_resp) {
     printf("receive the msg type(%d) from client.\n", req->type);
     int32_t ret;
 
     switch (req->type) {
     case TYPE_RA_RETRIEVE_DK:
-        printf("Dispatching TYPE_RA_RETRIEVE_DK, body size: %d\n", req->size);
+        printf("Dispatching TYPE_RA_RETRIEVE_DK, body size: %d, req->model_id is %d.\n", req->size, req->model_id);
         return RetreiveDomainKey(req, p_resp);
 
     default:
@@ -273,6 +275,7 @@ static void* SocketMsgHandler(void *sock_addr)
 {
     ra_samp_request_header_t *req;
     ra_samp_response_header_t *resp;
+ 
     uint32_t req_size;
 
     int32_t sockfd = *(int32_t*)sock_addr;
@@ -299,7 +302,7 @@ static void* SocketMsgHandler(void *sock_addr)
             break;
         }
 
-        ret = SocketDispatchCmd(req,&resp);
+        ret = SocketDispatchCmd(req, &resp);
         if (ret < 0) {
             printf("failed(%d) to handle msg type(%d)\n", ret, req->type);
             SendErrResponse(sockfd, req->type, ret);
@@ -309,7 +312,6 @@ static void* SocketMsgHandler(void *sock_addr)
         SendResponse(sockfd, resp);
 
         SAFE_FREE(req);
-        SAFE_FREE(resp);
     }
 
     SAFE_FREE(req);
@@ -580,9 +582,8 @@ CLEANUP:
     return ret;
 }
 
-
-int RetreiveDomainKey(const ra_samp_request_header_t *req,
-                ra_samp_response_header_t **p_resp) {
+static int RetreiveDomainKey(const ra_samp_request_header_t *req,
+                             ra_samp_response_header_t **p_resp) {
     ra_samp_response_header_t* p_resp_full = NULL;
     sample_key_blob_t *p_dk = NULL;
 
@@ -592,21 +593,17 @@ int RetreiveDomainKey(const ra_samp_request_header_t *req,
     uint32_t blob_size = 0;
     uint32_t resp_size = 0;
 
-    if (!req || !p_resp) {
+    if(!req || !p_resp) {
         return -1;
     }
 
     if (!g_securechannel_ready) {
-        /* setup the remote secure channel */
-        ret = RaSetupSecureChannel();
-        if (ret != SGX_SUCCESS) {
-            printf("failed(%d) to setup the secure channel.\n", ret);
-            goto out;
-        }
-        g_securechannel_ready = true;
+        printf("g_securechannel_ready is false.\n");
+        return -1;
     }
 
     ret = enclave_get_domainkey(g_enclave_id, &status,
+                req->model_id,
                 NULL,
                 0,
                 &(blob_size));
@@ -634,17 +631,18 @@ int RetreiveDomainKey(const ra_samp_request_header_t *req,
 printf("YYY--p_resp_full->size=%d\n", p_resp_full->size);
 
     ret = enclave_get_domainkey(g_enclave_id, &status,
+                req->model_id,
                 p_dk->blob,
                 p_dk->blob_size,
                 NULL);
-    if (SGX_SUCCESS != ret || status) {
+    if(SGX_SUCCESS != ret || status) {
         printf("failed(%d) to get the domainkey, status=%d\n", ret, status);
         ret = -1;
         goto out;
     }
 
 out:
-    if (ret) {
+    if(ret) {
         *p_resp = NULL;
         SAFE_FREE(p_resp_full);
     }
@@ -699,6 +697,12 @@ bool IsConnected()  {
     return (g_deploy_sock > 0);
 }
 
+void signal_callback_handler(int signum) {
+   cout << endl << "Caught signal " << signum << endl;
+   DisConnect();
+   exit(signum);
+}
+
 void Initialize() {
     struct sockaddr_in serAddr, cliAddr;
     int32_t listenfd, connfd;
@@ -728,6 +732,20 @@ void Initialize() {
 
     printf("Provisioning service is waiting for incoming connections...\n");
     cliAddr_len = sizeof(cliAddr);
+
+    printf("start to setup RA and retrive keys.\n");
+    if (!g_securechannel_ready) {
+        /* setup the remote secure channel */
+        ret = RaSetupSecureChannel();
+        if (ret != SGX_SUCCESS) {
+            printf("failed(%d) to setup the secure channel.\n", ret);
+            return;
+        }
+        g_securechannel_ready = true;
+    }
+
+    signal(SIGINT, signal_callback_handler);
+
     while (true) {
         /* Accept and incoming connection */
         connfd = accept(listenfd, (struct sockaddr *)&cliAddr, &cliAddr_len);

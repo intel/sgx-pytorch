@@ -474,9 +474,8 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
     uint32_t collateral_expiration_status = 1;
     
     sgx_ql_qe_report_info_t qve_report_info;
+    //todo
     unsigned char rand_nonce[16] = "59jslk201fgjmm;";
-
-    uint8_t *domain_key = NULL;
 
     uint32_t quote_size=0;
     
@@ -780,18 +779,15 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
             break;
         }
 
-        domain_key = (uint8_t *)malloc(SGX_DOMAIN_KEY_SIZE);
-        if (!domain_key) {
-            ret = SP_INTERNAL_ERROR;
-            break;
-        }
-        /*TODO: current initialize the domain key as 1*SGX_DOMAIN_KEY_SIZE
-        * need to generate the real domain_key from the HSM in the real product
-        */
-        memset(domain_key, 1, SGX_DOMAIN_KEY_SIZE);
+        //todo
+        model_key_t model_keys[2];
+        model_keys[0].model_id = 0;
+        memset(model_keys[0].key, 0, 16);
+        model_keys[1].model_id = 1;
+        memset(model_keys[1].key, 255, 16);
 
         // Respond the client with the results of the attestation.
-        uint32_t att_result_msg_size = sizeof(sample_ra_att_result_msg_t)+SGX_DOMAIN_KEY_SIZE;
+        uint32_t att_result_msg_size = sizeof(sample_ra_att_result_msg_t) + sizeof(model_keys);
         p_att_result_msg_full =
             (ra_samp_response_header_t*)malloc(att_result_msg_size
             + sizeof(ra_samp_response_header_t) );
@@ -826,10 +822,11 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
 
         // Generate shared secret and encrypt it with SK, if attestation passed.
         uint8_t aes_gcm_iv[SAMPLE_SP_IV_SIZE] = {0};
-        p_att_result_msg->secret.payload_size = SGX_DOMAIN_KEY_SIZE;
+        p_att_result_msg->secret.payload_size = sizeof(model_keys);
+printf("hyhy p_att_result_msg->secret.payload_size is %d.\n", p_att_result_msg->secret.payload_size);
 
         ret = sample_rijndael128GCM_encrypt(&g_sp_db.sk_key,
-                    domain_key,
+                    (uint8_t*)model_keys,
                     p_att_result_msg->secret.payload_size,
                     p_att_result_msg->secret.payload,
                     &aes_gcm_iv[0],
@@ -850,7 +847,6 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
     //clear the g_sp_db database after the attesation session finished.
     memset(&g_sp_db, 0, sizeof(sp_db_item_t));
 
-    SAFE_FREE(domain_key);
     return ret;
 }
 
@@ -933,6 +929,9 @@ static void* SocketMsgHandler(void *sock_addr)
         SAFE_FREE(req);
         SAFE_FREE(resp);
     }
+
+    SAFE_FREE(req);
+    SAFE_FREE(resp);
 
     return 0;
 }
