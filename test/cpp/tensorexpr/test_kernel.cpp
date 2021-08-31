@@ -1110,6 +1110,56 @@ TEST_F(Kernel, Softmax4D) {
   }
 }
 
+TEST_F(Kernel, SignTest) {
+  auto options = at::TensorOptions()
+                     .dtype(at::kFloat)
+                     .layout(at::kStrided)
+                     .device(at::kCPU)
+                     .requires_grad(false);
+  std::vector<float> input_data = {
+      0.7,
+      2.3,
+      -0.89,
+      -1.2,
+      4,
+      -5,
+      0.0,
+      -0.0,
+      0,
+      -0,
+      std::numeric_limits<float>::infinity(),
+      -std::numeric_limits<float>::infinity(),
+      std::numeric_limits<double>::infinity(),
+      -std::numeric_limits<double>::infinity(),
+      std::nan("1"),
+      -std::nan("1"),
+      std::nanf("1"),
+      -std::nanf("1"),
+      std::nanl("1"),
+      -std::nanl("1")};
+  auto input = at::from_blob(input_data.data(), {input_data.size()}, options);
+  auto ref = at::sign(input);
+
+  const auto graph_template = R"IR(
+      graph(%0 : Float(${size}, strides=[1], device=cpu)):
+        %2 : Float(${size}, strides=[1]) = aten::sign(%0)
+        return (%2))IR";
+  TemplateEnv env;
+  env.d("size", input_data.size());
+  const auto graph_string = format(graph_template, env);
+  auto graph = std::make_shared<Graph>();
+  parseIR(graph_string, &*graph);
+
+  TensorExprKernel k(graph);
+  StmtPtr s = k.getCodeGenStmt();
+
+  std::vector<at::Tensor> inputs = {input};
+  std::vector<IValue> stack = fmap<IValue>(inputs);
+  k.run(stack);
+  auto o = stack[0].toTensor();
+  ASSERT_TRUE(at::allclose(o, ref));
+}
+
 TEST_F(Kernel, InlineProducerIntoReduction) {
   // Inline producer (mul) into reduction (sum).
   const auto graph_string = R"IR(
