@@ -77,7 +77,7 @@ class TestE2EBase : public ::testing::Test {
     ctx.addSelfAsFork(ownerRRef);
 
     ScriptRemoteCall scriptRemoteCall(
-        op, {t1, t2, 1}, ownerRRef->rrefId(), ownerRRef->rrefId());
+        op, {t1, t2, 1}, ownerRRef->rrefId(), ownerRRef->rrefId(), {});
     auto jitFuture = autograd::sendMessageWithAutograd(
         *rpcAgent,
         rpcAgent->getWorkerInfo("worker"),
@@ -98,13 +98,14 @@ class TestE2EBase : public ::testing::Test {
       at::Tensor t1,
       at::Tensor t2,
       std::shared_ptr<torch::jit::Operator> op) {
-    ScriptCall scriptCall(op, {t1, t2, /* alpha */ 1});
+    ScriptCall scriptCall(op, {t1, t2, /* alpha */ 1}, {});
 
     // Send the RPC and return result.
     auto response = autograd::sendMessageWithAutograd(
         *rpcAgent,
         rpcAgent->getWorkerInfo("worker"),
-        std::move(scriptCall).toMessage());
+        std::move(scriptCall).toMessage()
+    );
     response->waitAndThrow();
 
     MessageType messageType = MessageType::FORWARD_AUTOGRAD_RESP;

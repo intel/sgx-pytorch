@@ -693,6 +693,10 @@ class MyParameterServer:
         return fut
 
 
+def _test_expected_device(t, expected_device):
+    return torch.device(t.device) == torch.device(expected_device)
+
+
 class RpcTest(RpcAgentTestFixture):
     @dist_init
     def test_worker_id(self):
@@ -6449,5 +6453,131 @@ class TensorPipeAgentCudaRpcTest(RpcAgentTestFixture):
         rref.rpc_sync().increase(1)
         ret = rref.rpc_sync().sum()
         self.assertEqual(ret, 42)
+
+        rpc.shutdown()
+
+    @skip_if_lt_x_gpu(3)
+    def test_device_map_rpc_sync(self):
+        dst = worker_name((self.rank + 1) % self.world_size)
+        options = self.rpc_backend_options
+        if self.rank == 0:
+            options.set_device_map(dst, {"cuda:0": "cuda:1"})
+        elif self.rank == 1:
+            options.set_devices(["cuda:1", "cuda:2"])
+        rpc.init_rpc(
+            name=worker_name(self.rank),
+            backend=self.rpc_backend,
+            rank=self.rank,
+            world_size=self.world_size,
+            rpc_backend_options=options,
+        )
+
+        if self.rank == 0:
+            self.assertTrue(
+                rpc.rpc_sync(
+                    dst, _test_expected_device, args=(torch.empty(1, device="cuda:0"), "cuda:1")
+                )
+            )
+            self.assertTrue(
+                rpc.rpc_sync(
+                    dst, _test_expected_device, args=(torch.empty(1, device="cuda:0"), "cuda:2"),
+                    device_map={"cuda:0": "cuda:2"}
+                )
+            )
+
+        rpc.shutdown()
+
+    @skip_if_lt_x_gpu(3)
+    def test_device_map_rpc_async(self):
+        dst = worker_name((self.rank + 1) % self.world_size)
+        options = self.rpc_backend_options
+        if self.rank == 0:
+            options.set_device_map(dst, {"cuda:0": "cuda:1"})
+        elif self.rank == 1:
+            options.set_devices(["cuda:1", "cuda:2"])
+        rpc.init_rpc(
+            name=worker_name(self.rank),
+            backend=self.rpc_backend,
+            rank=self.rank,
+            world_size=self.world_size,
+            rpc_backend_options=options,
+        )
+
+        if self.rank == 0:
+            self.assertTrue(
+                rpc.rpc_async(
+                    dst, _test_expected_device, args=(torch.empty(1, device="cuda:0"), "cuda:1")
+                ).wait()
+            )
+            self.assertTrue(
+                rpc.rpc_async(
+                    dst, _test_expected_device, args=(torch.empty(1, device="cuda:0"), "cuda:2"),
+                    device_map={0: 2}
+                ).wait()
+            )
+
+        rpc.shutdown()
+
+    @skip_if_lt_x_gpu(3)
+    def test_device_map_rpc_remote(self):
+        dst = worker_name((self.rank + 1) % self.world_size)
+        options = self.rpc_backend_options
+        if self.rank == 0:
+            options.set_device_map(dst, {"cuda:0": "cuda:1"})
+        elif self.rank == 1:
+            options.set_devices(["cuda:1", "cuda:2"])
+        rpc.init_rpc(
+            name=worker_name(self.rank),
+            backend=self.rpc_backend,
+            rank=self.rank,
+            world_size=self.world_size,
+            rpc_backend_options=options,
+        )
+
+        if self.rank == 0:
+            self.assertTrue(
+                rpc.remote(
+                    dst, _test_expected_device, args=(torch.empty(1, device="cuda:0"), "cuda:1")
+                ).to_here()
+            )
+            self.assertTrue(
+                rpc.remote(
+                    dst, _test_expected_device, args=(torch.empty(1, device="cuda:0"), "cuda:2"),
+                    device_map={"cuda:0": 2}
+                ).to_here()
+            )
+
+        rpc.shutdown()
+
+    @skip_if_lt_x_gpu(3)
+    def test_device_map_rpc_to_here(self):
+        dst = worker_name((self.rank + 1) % self.world_size)
+        options = self.rpc_backend_options
+        if self.rank == 0:
+            options.set_device_map(dst, {"cuda:0": "cuda:1"})
+            options.set_devices(["cuda:0", "cuda:2"])
+        elif self.rank == 1:
+            options.set_device_map(dst, {"cuda:1": "cuda:0"})
+        rpc.init_rpc(
+            name=worker_name(self.rank),
+            backend=self.rpc_backend,
+            rank=self.rank,
+            world_size=self.world_size,
+            rpc_backend_options=options,
+        )
+
+        if self.rank == 0:
+            self.assertEqual(
+                rpc.remote(
+                    dst, torch.empty, args=((1,),), kwargs={"device": "cuda:1"}
+                ).to_here().device,
+                torch.device("cuda:0")
+            )
+            self.assertEqual(
+                rpc.remote(
+                    dst, torch.empty, args=((1,),), kwargs={"device": "cuda:1"}
+                ).to_here(device_map={torch.device(1): torch.device(2)}).device,
+                torch.device("cuda:2")
+            )
 
         rpc.shutdown()
