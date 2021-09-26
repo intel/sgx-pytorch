@@ -45,6 +45,7 @@ enclave_ops/secure_op/build
 enclave_ops/**/App/enclave_u.*
 enclave_ops/**/Enclave/enclave_t.*
 enclave_ops/**/out
+enclave_ops/**/bin
 log
 test-reports/
 test/.coverage

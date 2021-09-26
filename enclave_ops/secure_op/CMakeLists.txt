@@ -5,7 +5,7 @@ find_package(Torch REQUIRED)
 
 set(TORCH_ROOT ${CMAKE_CURRENT_LIST_DIR}/../..)
 
-if (NOT DEFINED ENV{SGX_SDK})
+if(NOT DEFINED ENV{SGX_SDK})
   message(FATAL_ERROR "SGX_SDK is not defined. DiD you source sgx environment?")
 endif()
 
@@ -14,6 +14,7 @@ include_directories("${TORCH_ROOT}/aten/src/")
 include_directories("${TORCH_ROOT}/torch/include")
 include_directories("${TORCH_ROOT}/third_party/ideep/include")
 include_directories("${TORCH_ROOT}/enclave_ops/ideep-enclave/App")
+include_directories("${TORCH_ROOT}/enclave_ops/ideep-enclave/Include")
 include_directories("$ENV{SGX_SDK}/include")
 
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${TORCH_ROOT}/enclave_ops/ideep-enclave/App/Enclave_u.o $ENV{SGX_SDK}/lib64/libsgx_urts.so ")

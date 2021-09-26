@@ -42,13 +42,14 @@
 #include "sgx_tcrypto.h"
 
 #include "dh_session_protocol.h"
-#include "enclave_hsm_t.h"
 #include "marshal.h"
 #include "enclave_msg_exchange.h"
 
-extern void printf(const char *fmt, ...);
+#include <Enclave_t.h>
 
-extern sgx_aes_gcm_128bit_key_t g_domain_key;
+extern "C" void printf(const char *fmt, ...);
+
+sgx_aes_gcm_128bit_key_t g_model_key = {2};
 
 #define MAX_SESSION_COUNT  16
 
@@ -416,7 +417,7 @@ extern "C" uint32_t enclave_la_create_session()
 /* Function Description:
  *   This is ECALL routine to transfer message with ECDH peer
  * */
-uint32_t enclave_la_message_exchange()
+uint32_t enclave_la_message_exchange(uint32_t model_id)
 {
     ATTESTATION_STATUS ke_status = SUCCESS;
     uint32_t target_fn_id, msg_type;
@@ -428,16 +429,12 @@ uint32_t enclave_la_message_exchange()
     uint8_t* secret;
     uint32_t secret_len;
 
-    uint32_t cmd_id;
-
     target_fn_id = 0;
     msg_type = MESSAGE_EXCHANGE;
     max_out_buff_size = 50; // it's assumed the maximum payload size in response message is 50 bytes, it's for demonstration purpose
 
-    cmd_id = MESSAGE_EXCHANGE_CMD_DK;
-
     //Marshals the secret data into a buffer
-    ke_status = marshal_message_exchange_request(target_fn_id, msg_type, cmd_id, &marshalled_inp_buff, &marshalled_inp_buff_len);
+    ke_status = marshal_message_exchange_request(target_fn_id, msg_type, model_id, &marshalled_inp_buff, &marshalled_inp_buff_len);
     if(ke_status != SUCCESS)
     {
         return ke_status;
@@ -460,12 +457,16 @@ uint32_t enclave_la_message_exchange()
         goto out;
     }
 
-    if(secret_len != sizeof(g_domain_key)) {
+    if(secret_len != sizeof(g_model_key)) {
         printf("the received buffer not matched with domainkey's size\n");
         ke_status = OUT_BUFFER_LENGTH_ERROR;
         goto out;
     }
-    memcpy(g_domain_key, secret, secret_len);
+    memcpy(g_model_key, secret, secret_len);
+
+for (int i = 0; i<sizeof(g_model_key); i++) {
+printf("hyhy g_model_key[%d] is %d\n", i, g_model_key[i]);
+}
 
 out:
     SAFE_FREE(marshalled_inp_buff);

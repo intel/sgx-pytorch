@@ -47,7 +47,7 @@ const char deploy_ip_addr[] = "127.0.0.1";
 
 const uint32_t deploy_port = 8888;
 
-#define ENCLAVE_PATH "libenclave-ehsm-dkeycache.signed.so"
+#define ENCLAVE_PATH "libenclave-dkeycache.signed.so"
 
 
 errno_t memcpy_s(void *dest,

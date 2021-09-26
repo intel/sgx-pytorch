@@ -31,7 +31,7 @@
 
 include ../buildenv.mk
 
-App_Name := ehsm-dkeyserver
+App_Name := dkeyserver
 Enclave_Name := libenclave-$(App_Name).so
 Signed_Enclave_Name := libenclave-$(App_Name).signed.so
 
@@ -48,7 +48,8 @@ App_Include_Paths := \
 	-IInclude \
 	-IApp \
 	-I$(SGX_SDK)/include \
-	-Isample_libcrypto
+	-Isample_libcrypto \
+	-I$(TOPDIR)/include
 
 App_C_Flags := $(SGX_COMMON_FLAGS) -fPIC -Wno-attributes $(App_Include_Paths)
 

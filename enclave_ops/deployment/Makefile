@@ -31,7 +31,7 @@
 
 include buildenv.mk
 
-SUB_DIR := core dkeycache dkeyserver
+SUB_DIR := dkeycache dkeyserver
 
 .PHONY: all clean
 

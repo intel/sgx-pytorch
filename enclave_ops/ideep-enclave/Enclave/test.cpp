@@ -55,6 +55,8 @@
 #include <map>
 #include <Enclave_t.h>
 
+#include "enclave_msg_exchange.h"
+
 extern "C" void printf(const char *fmt, ...);
 
 typedef struct {
@@ -62,6 +64,8 @@ typedef struct {
 } sgx_aes_gcm_128bit_key_struct_t;
 
 std::map<uint32_t, sgx_aes_gcm_128bit_key_struct_t> g_model_keys;
+extern sgx_aes_gcm_128bit_key_t g_model_key;
+
 
 static sgx_status_t get_encryption_key(uint32_t model_id)
 {
@@ -69,34 +73,34 @@ static sgx_status_t get_encryption_key(uint32_t model_id)
     if (g_model_keys.find(model_id) != g_model_keys.end())
         return SGX_SUCCESS;
 
-    uint32_t key_blob_len = sgx_calc_sealed_data_size(0, SGX_AESGCM_KEY_SIZE);
-    uint8_t key_blob[key_blob_len] = {0};
-printf("ocall to get key, key_blob_len is %d.\n", key_blob_len);
-
     sgx_aes_gcm_128bit_key_struct_t temp_key = {0};
-
     int ret = -1;
-    ocall_get_encryption_key_blob(&ret, model_id, key_blob, key_blob_len);
-    if (ret) {
-        printf("failed to retrieve the key of model id(%d).\n", model_id);
+
+    // create ECDH session using initiator enclave, it would create ECDH session with responder enclave running in another process
+    ret = enclave_la_create_session();
+    if (ret != 0) {
+        printf("enclave_la_message_exchange failed:0x%x\n", ret);
         return SGX_ERROR_UNEXPECTED;
     }
+    printf("succeed to establish secure channel.\n");
 
-    uint32_t dec_key_size = sgx_get_encrypt_txt_len((sgx_sealed_data_t *)key_blob);
-    if (dec_key_size == UINT32_MAX || dec_key_size != 16) {
-        printf("dec_key_size size:%lu is not expected: %u.\n", dec_key_size, sizeof(sgx_key_128bit_t));
-        return SGX_ERROR_INVALID_PARAMETER;
+    // Test message exchange between initiator enclave and responder enclave running in another process
+    ret = enclave_la_message_exchange(model_id);
+    if (ret != 0) {
+        printf("enclave_la_message_exchange failed:0x%x\n", ret);
+        return SGX_ERROR_UNEXPECTED;
     }
+    printf("Succeed to exchange secure message...\n");
 
-    sgx_status_t ret2 = sgx_unseal_data((sgx_sealed_data_t *)key_blob, NULL, 0, (uint8_t *)&temp_key, &dec_key_size);
-    if (ret2 != SGX_SUCCESS) {
-        printf("error(%d) unsealing key.\n", ret2);
-        return ret2;
+    // close ECDH session
+    ret = enclave_la_close_session();
+    if (ret != 0) {
+        printf("enclave_la_message_exchange failed:0x%x\n", ret);
+        return SGX_ERROR_UNEXPECTED;
     }
+    printf("Succeed to close Session...\n");
 
-for (int i=0; i<16; i++)
-printf("hyhyhyhy: temp_key[%d]=%2d\n", i, temp_key.key[i]);
-
+    memcpy(&temp_key, &g_model_key, sizeof(temp_key));
     g_model_keys.insert(std::pair<uint32_t, sgx_aes_gcm_128bit_key_struct_t>(model_id, temp_key));
 
     return SGX_SUCCESS;

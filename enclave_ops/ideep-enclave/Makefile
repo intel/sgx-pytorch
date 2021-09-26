@@ -223,8 +223,8 @@ $(Gen_Untrusted_Source): $(SGX_EDGER8R) Enclave/Enclave.edl
 	@cat App/ocall.c >> $@
 
 $(Gen_Untrusted_Object): $(Gen_Untrusted_Source)
-	@$(CC) $(SGX_COMMON_CFLAGS) $(App_Compile_CFlags) -c $< -o $@
-	@echo "CC   <=  $<"
+	@$(CXX) $(SGX_COMMON_CFLAGS) $(App_Compile_CFlags) -c $< -o $@
+	@echo "CXX   <=  $<"
 
 $(App_Objects): $(Gen_Untrusted_Source)
 

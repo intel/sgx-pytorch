@@ -31,7 +31,7 @@
 
 include ../buildenv.mk
 
-App_Name := ehsm-dkeycache
+App_Name := dkeycache
 Enclave_Name := libenclave-$(App_Name).so
 Signed_Enclave_Name := libenclave-$(App_Name).signed.so
 

@@ -36,6 +36,8 @@
 #include <map>
 #include "dh_session_protocol.h"
 
+#include "error_codes.h"
+
 #ifndef _ENCLAVE_MSG_EXCHANGE_H_
 #define _ENCLAVE_MSG_EXCHANGE_H_
 
@@ -57,6 +59,10 @@ ATTESTATION_STATUS close_session(dh_session_t *session_info);
 ATTESTATION_STATUS generate_session_id(uint32_t *session_id);
 
 ATTESTATION_STATUS end_session(sgx_enclave_id_t src_enclave_id);
+
+uint32_t enclave_la_create_session();
+uint32_t enclave_la_message_exchange(uint32_t model_id);
+uint32_t enclave_la_close_session();
 
 #ifdef __cplusplus
 }
