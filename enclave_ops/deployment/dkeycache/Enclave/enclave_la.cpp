@@ -38,7 +38,7 @@
 #include "sgx_ecp_types.h"
 #include "sgx_thread.h"
 #include <map>
-
+#include "mbusafecrt.h"
 #include "sgx_dh.h"
 
 #include "enclave_la.h"
@@ -56,7 +56,8 @@ uint32_t g_session_count = 0;
 //Array of open session ids
 session_id_tracker_t *g_session_id_tracker[MAX_SESSION_COUNT];
 
-extern uint8_t g_domain_key[SGX_DOMAIN_KEY_SIZE];
+extern model_key_t *g_model_keys;
+extern uint32_t g_model_keys_size;
 
 //Map between the session id and the session information associated with that particular session
 std::map<uint32_t, dh_session_t>g_dest_session_info_map;
@@ -102,28 +103,24 @@ extern "C" uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t*
     return SUCCESS;
 }
 
-
 /* Function Description: Operates on the input secret and generates the output secret */
-uint32_t get_message_exchange_response(uint32_t cmd_id, uint8_t** out, uint32_t* out_size)
+uint32_t get_message_exchange_response(uint32_t model_id, uint8_t** out, uint32_t* out_size)
 {
+    uint8_t *tmp_data;
 
+    tmp_data = (uint8_t*)malloc(sizeof(((model_key_t*)0)->key));
+    if (!tmp_data)
+        return MALLOC_ERROR;
 
-    switch(cmd_id) {
-        case MESSAGE_EXCHANGE_CMD_DK:
-            printf("Receive cmd: MESSAGE_EXCHANGE_CMD_DK.\n");
-            uint8_t *tmp_data;
-
-            tmp_data = (uint8_t*)malloc(SGX_DOMAIN_KEY_SIZE);
-            if (!tmp_data)
-                return MALLOC_ERROR;
-
-
-            memcpy(tmp_data, g_domain_key, SGX_DOMAIN_KEY_SIZE);
-            *out_size = SGX_DOMAIN_KEY_SIZE;
+    for (int i = 0; i < g_model_keys_size/sizeof(model_key_t); i++) {
+        if (model_id == g_model_keys[i].model_id) {
+            memcpy_s(tmp_data, sizeof(g_model_keys[i].key), g_model_keys[i].key, sizeof(g_model_keys[i].key));
+            *out_size = sizeof(((model_key_t*)0)->key);
             *out = tmp_data;
-            break;
-        default:
-            break;
+	    break;
+        }
+	if (i == g_model_keys_size/sizeof(model_key_t) - 1)
+            printf("model(0x%X) key cannot be found!\n", model_id);
     }
 
     return 0;
@@ -140,7 +137,7 @@ extern "C" uint32_t message_exchange_response_generator(uint8_t* decrypted_data,
 {
     ms_in_msg_exchange_t *ms;
 
-    uint32_t cmd_id;
+    uint32_t model_id;
     uint8_t* out = NULL;
     uint32_t out_size = 0;
     
@@ -149,10 +146,10 @@ extern "C" uint32_t message_exchange_response_generator(uint8_t* decrypted_data,
     
     ms = (ms_in_msg_exchange_t *)decrypted_data;
 
-    if(umarshal_message_exchange_request(&cmd_id,ms) != SUCCESS)
+    if(umarshal_message_exchange_request(&model_id,ms) != SUCCESS)
         return ATTESTATION_ERROR;
 
-    get_message_exchange_response(cmd_id, &out, &out_size);
+    get_message_exchange_response(model_id, &out, &out_size);
     if(!out || !out_size) {
         return INVALID_PARAMETER;
     }

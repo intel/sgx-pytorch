@@ -73,7 +73,10 @@ static const sgx_ec256_public_t g_sp_pub_key = {
 };
 
 // Used to store the secret passed by the SP in the sample code.
-uint8_t g_domain_key[SGX_DOMAIN_KEY_SIZE] = {0};
+
+model_key_t *g_model_keys = NULL;
+uint32_t g_model_keys_size = 0;
+
 
 void printf(const char *fmt, ...)
 {
@@ -351,9 +354,10 @@ sgx_status_t enclave_store_domainkey (
     uint32_t i;
 
     do {
-        if(secret_size != SGX_DOMAIN_KEY_SIZE)
+        if (secret_size % sizeof(model_key_t) != 0 || secret_size == 0)
         {
             ret = SGX_ERROR_INVALID_PARAMETER;
+            printf("unexpected encalve secret_size is %d.\n", secret_size);
             break;
         }
 
@@ -363,11 +367,19 @@ sgx_status_t enclave_store_domainkey (
             break;
         }
 
+        g_model_keys_size = secret_size;
+        g_model_keys = (model_key_t*)malloc(g_model_keys_size);
+        if (g_model_keys == NULL) {
+            ret = SGX_ERROR_OUT_OF_MEMORY;
+            printf("failed to malloc g_model_keys.\n");
+            break;
+        }
+
         uint8_t aes_gcm_iv[12] = {0};
         ret = sgx_rijndael128GCM_decrypt(&sk_key,
                                          p_secret,
                                          secret_size,
-                                         g_domain_key,
+                                         (uint8_t*)g_model_keys,
                                          &aes_gcm_iv[0],
                                          12,
                                          NULL,
@@ -379,9 +391,10 @@ sgx_status_t enclave_store_domainkey (
             printf("Failed to decrypt the secret from server\n");
         }
         printf("Decrypt the serect success\n");
-        for (i=0; i<sizeof(g_domain_key); i++) {
-            printf("domain_key[%d]=%2d\n", i, g_domain_key[i]);
-        }
+
+for (int i = 0; i <secret_size; i++)
+printf("hyhyhy g_model_keys %d:%d.\n", i, *((uint8_t*)g_model_keys+i));
+
         // Once the server has the shared secret, it should be sealed to
         // persistent storage for future use. This will prevents having to
         // perform remote attestation until the secret goes stale. Once the

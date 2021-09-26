@@ -131,6 +131,13 @@ typedef struct _session_id_tracker_t
     uint32_t          session_id;
 } session_id_tracker_t;
 
+
+typedef struct {
+    uint32_t model_id;
+    uint8_t key[16];
+} model_key_t;
+
+
 #pragma pack(pop)
 
 
