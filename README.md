@@ -2,6 +2,25 @@
 
 --------------------------------------------------------------------------------
 
+<br />
+
+### NOTICE
+
+This repository is for Pytorch with SGX solution.
+
+Details please see our [wiki (README under enclave_ops folder)](https://github.com/intel/pytorch/tree/sgx/enclave_ops).
+
+You can also reference [Ali cloud best practice](https://help.aliyun.com/document_detail/349295.html) for the specific cloud deployment plan.  
+
+
+<br />
+
+
+
+### Below is the original Pytorch README
+--------------------------------------------------------------------------------
+
+
 PyTorch is a Python package that provides two high-level features:
 - Tensor computation (like NumPy) with strong GPU acceleration
 - Deep neural networks built on a tape-based autograd system
