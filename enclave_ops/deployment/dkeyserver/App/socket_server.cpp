@@ -45,6 +45,7 @@
 #include "sgx_ql_quote.h"
 #include "sgx_dcap_quoteverify.h"
 
+#include "rand.h"
 #include "ecp.h"
 #include "sample_libcrypto.h"
 #include "socket_server.h"
@@ -170,21 +171,6 @@ static int32_t SendErrResponse(int32_t sockfd, int8_t type, int8_t err) {
     p_err_resp_full.status[0] = err;
     return SendResponse(sockfd, &p_err_resp_full);
 }
-
-/*
-static int fake_rand(uint8_t *buf, size_t size)
-{
-    uint32_t i;
-    if(!buf)
-        return -1;
-
-    for(i=0; i<(uint32_t)size; ++i){
-        buf[i]=(uint8_t)rand();
-    }
-
-    return 0;
-}
-*/
 
 // Verify message 1 then generate and return message 2 to isv.
 int sp_ra_proc_msg1_req(const sample_ra_msg1_t *p_msg1,
@@ -475,7 +461,6 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
     uint32_t collateral_expiration_status = 1;
     
     sgx_ql_qe_report_info_t qve_report_info;
-    // todo
     unsigned char rand_nonce[16] = "59jslk201fgjmm;";
 
     uint32_t quote_size=0;
@@ -621,6 +606,12 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
         //set current time. This is only for sample purposes, in production mode a trusted time should be used.
         current_time = time(NULL);
         //set nonce
+        get_drng_support();
+        if (0 != get_random(rand_nonce, sizeof(rand_nonce))) {
+            fprintf(stderr,"\nfailed to get random.\n", __FUNCTION__);
+            ret = SP_INTERNAL_ERROR;
+            break;
+        }
         memcpy(qve_report_info.nonce.rand, rand_nonce, sizeof(rand_nonce));
 #if 0
         // Trusted quote verification
