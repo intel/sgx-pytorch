@@ -45,7 +45,6 @@ enclave {
     trusted {
         public sgx_status_t ecall_conv_dnnl_function(
                                             [in, size=conv_desc_size] void* conv_desc, size_t conv_desc_size,
-                                            [user_check] void* conv_attr,
                                             [in, size=src_data_size] void* src_handle, size_t src_data_size,
                                             [in, size=src_desc_size] void* void_src_desc, size_t src_desc_size,
                                             [in, size=weight_data_size] void* weight_handle, size_t weight_data_size,
