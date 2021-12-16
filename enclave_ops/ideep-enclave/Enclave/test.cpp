@@ -135,7 +135,6 @@ static sgx_status_t AESGCM_decrypt_tensor (void* decrypt_handle,
 
 
 extern "C" sgx_status_t ecall_conv_dnnl_function (void* conv_desc, size_t conv_desc_size,
-                                        void* conv_attr,  //TODO: change to in/out
                                         void* src_handle, size_t src_data_size,
                                         void* void_src_desc, size_t src_desc_size,
                                         void* weight_handle, size_t weight_data_size,
@@ -154,9 +153,6 @@ extern "C" sgx_status_t ecall_conv_dnnl_function (void* conv_desc, size_t conv_d
     dnnl::convolution_forward::desc* conv_desc_mem = (dnnl::convolution_forward::desc*)conv_desc;
     dnnl::convolution_forward::desc* conv_desc_pri = (dnnl::convolution_forward::desc*)void_src_desc;
 
-    dnnl::primitive_attr conv_attr_mem;
-    dnnl::post_ops* ops = (dnnl::post_ops*)conv_attr;
-    conv_attr_mem.set_post_ops(*ops);
     auto conv_pd = dnnl::convolution_forward::primitive_desc(*conv_desc_mem, engine2);
     auto conv_pd_pri = dnnl::convolution_forward::primitive_desc(*conv_desc_pri, engine2);
 
