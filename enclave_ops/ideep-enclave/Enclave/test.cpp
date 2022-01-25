@@ -41,6 +41,7 @@
 
 #include "sgx_tseal.h"
 #include "sgx_trts.h"
+#include "sgx_thread.h"
 
 #include "dnnl.hpp"
 #include "dnnl_types.h"
@@ -59,13 +60,14 @@
 
 extern "C" void printf(const char *fmt, ...);
 
+static sgx_thread_mutex_t global_mutex = SGX_THREAD_MUTEX_INITIALIZER;
+
 typedef struct {
     uint8_t key[16];
 } sgx_aes_gcm_128bit_key_struct_t;
 
 std::map<uint32_t, sgx_aes_gcm_128bit_key_struct_t> g_model_keys;
 extern sgx_aes_gcm_128bit_key_t g_model_key;
-
 
 static sgx_status_t get_encryption_key(uint32_t model_id)
 {
@@ -100,8 +102,15 @@ static sgx_status_t get_encryption_key(uint32_t model_id)
     }
     printf("Succeed to close Session...\n");
 
+    sgx_thread_mutex_lock(&global_mutex);
+
     memcpy(&temp_key, &g_model_key, sizeof(temp_key));
     g_model_keys.insert(std::pair<uint32_t, sgx_aes_gcm_128bit_key_struct_t>(model_id, temp_key));
+
+    memset_s(&temp_key, sizeof(sgx_aes_gcm_128bit_key_struct_t), 0, sizeof(sgx_aes_gcm_128bit_key_struct_t));
+    memset_s(&g_model_key, sizeof(sgx_aes_gcm_128bit_key_t), 0, sizeof(sgx_aes_gcm_128bit_key_t));
+
+    sgx_thread_mutex_unlock(&global_mutex);
 
     return SGX_SUCCESS;
 }
@@ -115,7 +124,7 @@ static sgx_status_t AESGCM_decrypt_tensor (void* decrypt_handle,
     if (meta_size != 28 || iv_mac == NULL)
         return SGX_ERROR_INVALID_PARAMETER;
 
-    size_t gen_iv_size = 12, gen_mac_size = 16;
+    size_t gen_iv_size = 12;
 
     sgx_status_t ret = get_encryption_key(model_id);
     if (ret != SGX_SUCCESS) {
@@ -129,7 +138,6 @@ static sgx_status_t AESGCM_decrypt_tensor (void* decrypt_handle,
                                      (uint8_t*)iv_mac, gen_iv_size,
                                      NULL, 0,
                                      (sgx_aes_gcm_128bit_tag_t*)(iv_mac + gen_iv_size));
-    //printf("ret %d/n", ret);
     return ret;
 }
 
@@ -146,7 +154,6 @@ extern "C" sgx_status_t ecall_conv_dnnl_function (void* conv_desc, size_t conv_d
 					uint32_t model_id)
 {
     dnnl::engine engine2(dnnl::engine::kind::cpu, 0);
-    //printf("hyhy call conv in sgx\n");
     // Create dnnl::stream.
     dnnl::stream engine_stream(engine2);
 
@@ -261,7 +268,6 @@ extern "C" sgx_status_t ecall_inner_product_dnnl_function (void* inner_product_d
 
     dnnl::engine engine(dnnl::engine::kind::cpu, 0);
 
-    //printf("###############1");
     // Create dnnl::stream.
     dnnl::stream engine_stream(engine);
 
@@ -283,9 +289,6 @@ extern "C" sgx_status_t ecall_inner_product_dnnl_function (void* inner_product_d
     auto user_weights_mem = dnnl::memory(inner_product_pd_pri.weights_desc(), engine, weight_handle);
     auto user_bias_mem = dnnl::memory(inner_product_pd_pri.bias_desc(), engine, bias);
 
-    size_t bytes;
-    
-    //printf("################2");
     auto decrypt_weight_handle = user_weights_mem.get_data_handle();
     auto decrypt_weight_bytes = user_weights_mem.get_desc().get_size();
     auto ret = AESGCM_decrypt_tensor(decrypt_weight_handle, decrypt_weight_bytes, weight_iv_mac, weight_meta_size, model_id);
@@ -298,7 +301,6 @@ extern "C" sgx_status_t ecall_inner_product_dnnl_function (void* inner_product_d
 	if (ret != SGX_SUCCESS)
             return ret;
     }
-    //printf("##########3");
 
     //create src with src handle
     if (inner_product_pd.src_desc() != user_src_mem.get_desc()) {
@@ -308,9 +310,6 @@ extern "C" sgx_status_t ecall_inner_product_dnnl_function (void* inner_product_d
     }
     else
         inner_product_src_mem = user_src_mem;
-
-    bytes = inner_product_src_mem.get_desc().get_size();
-    float *src_data = static_cast<float *>(inner_product_src_mem.get_data_handle());
 
     //create weight with weights handle
     if (inner_product_pd.weights_desc() != user_weights_mem.get_desc()) {
@@ -361,7 +360,6 @@ extern "C" sgx_status_t ecall_batch_norm_dnnl_function (void* batch_norm_desc, s
 {
     dnnl::engine engine(dnnl::engine::kind::cpu, 0);
 
-    //printf("call batch norm in sgx\n");
     // Create dnnl::stream.
     dnnl::stream engine_stream(engine);
 

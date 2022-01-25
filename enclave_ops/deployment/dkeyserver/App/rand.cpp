@@ -46,7 +46,7 @@ static void __cpuid(uint64_t cpu_info[4], uint64_t leaf, uint64_t subleaf)
     );
 }
 
-void get_drng_support(void)
+static void get_drng_support(void)
 {
     uint64_t info[4];
 
@@ -127,6 +127,7 @@ int get_random(uint8_t *buf, size_t len)
         return -1;
     }
 
+    get_drng_support();
     for (i = 0; i < len; i += 4) {
         uint32_t tmp_buf = 0;
         if (0 != drng_rand32(&tmp_buf)) {

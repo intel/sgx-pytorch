@@ -42,12 +42,17 @@ using namespace std;
 
 extern "C" void printf(const char *fmt, ...)
 {
+
+#if defined(DEBUG)
     char buf[300] = {'\0'};
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(buf, BUFSIZ, fmt, ap);
     va_end(ap);
     ocall_print_string(buf);
+#endif
+
+    return;
 }
 
 

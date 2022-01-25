@@ -133,6 +133,15 @@ ifeq ($(CC_BELOW_4_9), 1)
 else
 	Enclave_Compile_CFlags := -fstack-protector-strong
 endif
+
+ifeq ($(SGX_DEBUG), 1)
+	Enclave_Compile_CFlags += -DDEBUG -UNDEBUG -UEDEBUG
+else ifeq ($(SGX_PRERELEASE), 1)
+	Enclave_Compile_CFlags += -DNDEBUG -DEDEBUG -UDEBUG
+else
+	Enclave_Compile_CFlags += -DNDEBUG -UEDEBUG -UDEBUG
+endif
+
 Enclave_Compile_CFlags += -nostdinc -ffreestanding -fvisibility=hidden -fpie -ffunction-sections -fdata-sections $(Enclave_Include_Paths) -fomit-frame-pointer
 Enclave_Compile_CXXFlags := -nostdinc++  $(Enclave_Compile_CFlags) #-fomit-frame-pointer
 

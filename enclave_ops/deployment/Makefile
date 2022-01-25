@@ -32,6 +32,9 @@
 include buildenv.mk
 
 SUB_DIR := dkeycache dkeyserver
+PEM_FILE := test.pem
+export SP_PUB_KEY := $(shell openssl ec -in $(PEM_FILE) -noout -text | grep "pub:" -A 5 | tail -5 | xargs echo -n | sed 's/ //g')
+export SP_PRIV_KEY := $(shell openssl ec -in $(PEM_FILE) -noout -text | grep "priv:" -A 3 | tail -3 | xargs echo -n | sed 's/ //g')
 
 .PHONY: all clean
 

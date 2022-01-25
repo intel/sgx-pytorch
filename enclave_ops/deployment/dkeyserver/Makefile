@@ -31,6 +31,8 @@
 
 include ../buildenv.mk
 
+SGX_DEBUG ?= 1
+
 App_Name := dkeyserver
 Enclave_Name := libenclave-$(App_Name).so
 Signed_Enclave_Name := libenclave-$(App_Name).signed.so
@@ -51,7 +53,7 @@ App_Include_Paths := \
 	-Isample_libcrypto \
 	-I$(TOPDIR)/include
 
-App_C_Flags := $(SGX_COMMON_FLAGS) -fPIC -Wno-attributes $(App_Include_Paths)
+App_C_Flags := $(SGX_COMMON_FLAGS) -fPIC -Wno-attributes $(App_Include_Paths) -DSP_PRIV_KEY=\"$(SP_PRIV_KEY)\"
 
 # Three configuration modes - Debug, prerelease, release
 #   Debug - Macro DEBUG enabled.
@@ -94,6 +96,14 @@ Enclave_C_Flags := \
 	-fpie -ffunction-sections \
 	-fdata-sections \
 	$(MITIGATION_CFLAGS)
+
+ifeq ($(SGX_DEBUG), 1)
+        Enclave_C_Flags += -DDEBUG -UNDEBUG -UEDEBUG
+else ifeq ($(SGX_PRERELEASE), 1)
+        Enclave_C_Flags += -DNDEBUG -DEDEBUG -UDEBUG
+else
+        Enclave_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
+endif
 
 CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
 ifeq ($(CC_BELOW_4_9), 1)

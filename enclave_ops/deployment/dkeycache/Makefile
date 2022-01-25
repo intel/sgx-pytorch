@@ -31,6 +31,8 @@
 
 include ../buildenv.mk
 
+SGX_DEBUG ?= 1
+
 App_Name := dkeycache
 Enclave_Name := libenclave-$(App_Name).so
 Signed_Enclave_Name := libenclave-$(App_Name).signed.so
@@ -95,6 +97,14 @@ Enclave_C_Flags := \
 	-fdata-sections \
 	$(MITIGATION_CFLAGS)
 
+ifeq ($(SGX_DEBUG), 1)
+	Enclave_C_Flags += -DDEBUG -UNDEBUG -UEDEBUG
+else ifeq ($(SGX_PRERELEASE), 1)
+	Enclave_C_Flags += -DNDEBUG -DEDEBUG -UDEBUG
+else
+	Enclave_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
+endif
+
 CC_BELOW_4_9 := $(shell expr "`$(CC) -dumpversion`" \< "4.9")
 ifeq ($(CC_BELOW_4_9), 1)
 	Enclave_C_Flags += -fstack-protector
@@ -102,7 +112,7 @@ else
 	Enclave_C_Flags += -fstack-protector-strong
 endif
 
-Enclave_Cpp_Flags := $(Enclave_C_Flags) -nostdinc++
+Enclave_Cpp_Flags := $(Enclave_C_Flags) -nostdinc++ -DSP_PUB_KEY=\"$(SP_PUB_KEY)\"
 
 # Enable the security flags
 Enclave_Security_Link_Flags := -Wl,-z,relro,-z,now,-z,noexecstack
