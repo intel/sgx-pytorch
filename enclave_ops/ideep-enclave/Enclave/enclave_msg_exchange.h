@@ -41,6 +41,25 @@
 #ifndef _ENCLAVE_MSG_EXCHANGE_H_
 #define _ENCLAVE_MSG_EXCHANGE_H_
 
+class SecureMem {
+public:
+    SecureMem() {
+        data = NULL;
+        len = 0;
+    };
+
+    ~SecureMem() {
+        if (data) {
+            memset_s(data, len, 0, len);
+            data = NULL;
+        }
+        len = 0;
+    };
+
+    uint8_t* data;
+    uint32_t len;
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif

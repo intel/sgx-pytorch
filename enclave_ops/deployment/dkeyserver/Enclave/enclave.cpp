@@ -41,12 +41,15 @@
 
 void printf(const char *fmt, ...)
 {
+#if defined(DEBUG)
     char buf[BUFSIZ] = {'\0'};
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(buf, BUFSIZ, fmt, ap);
     va_end(ap);
     ocall_print_string(buf);
+#endif
+    return;
 }
 
 sgx_status_t sgx_create_domainkey(uint8_t *cmk_blob, size_t cmk_blob_size, size_t *req_blob_size)

@@ -42,7 +42,6 @@
 #define DRNG_HAS_RDSEED 0X2
 #define DRNG_MAX_TRIES  4
 
-void get_drng_support(void);
 int get_random(uint8_t *buf, size_t len);
 
 #endif

@@ -55,37 +55,24 @@
 // to a security compromise. Every different SP the enclave communicates to
 // must have a unique SP public key. Delivery of the SP public key is
 // determined by the ISV. The TKE SIGMA protocol expects an Elliptical Curve key
-// based on NIST P-256
-static const sgx_ec256_public_t g_sp_pub_key = {
-    {
-        0x72, 0x12, 0x8a, 0x7a, 0x17, 0x52, 0x6e, 0xbf,
-        0x85, 0xd0, 0x3a, 0x62, 0x37, 0x30, 0xae, 0xad,
-        0x3e, 0x3d, 0xaa, 0xee, 0x9c, 0x60, 0x73, 0x1d,
-        0xb0, 0x5b, 0xe8, 0x62, 0x1c, 0x4b, 0xeb, 0x38
-    },
-    {
-        0xd4, 0x81, 0x40, 0xd9, 0x50, 0xe2, 0x57, 0x7b,
-        0x26, 0xee, 0xb7, 0x41, 0xe7, 0xc6, 0x14, 0xe2,
-        0x24, 0xb7, 0xbd, 0xc9, 0x03, 0xf2, 0x9a, 0x28,
-        0xa8, 0x3c, 0xc8, 0x10, 0x11, 0x14, 0x5e, 0x06
-    }
-
-};
+// based on NIST P-256 (prime256v1)
+sgx_ec256_public_t g_sp_pub_key;
 
 // Used to store the secret passed by the SP in the sample code.
-
 model_key_t *g_model_keys = NULL;
 uint32_t g_model_keys_size = 0;
 
-
 void printf(const char *fmt, ...)
 {
+#if defined(DEBUG)
     char buf[BUFSIZ] = {'\0'};
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(buf, BUFSIZ, fmt, ap);
     va_end(ap);
     ocall_print_string(buf);
+#endif
+    return;
 }
 
 
@@ -217,6 +204,28 @@ sgx_status_t key_derivation(const sgx_ec256_dh_shared_t* shared_key,
 #pragma message ("Default key derivation function is used.")
 #endif
 
+static void initialize_sp_pub_key()
+{
+    std::string pub = SP_PUB_KEY;
+    char* buffer = strndup(pub.c_str(), pub.length() + 1);
+    /* Skip the 1st byte which indicates uncompressed form */
+    char* pch = strtok(buffer, ":");
+    uint32_t i = 0;
+
+    while (pch != NULL && i < sizeof(sgx_ec256_public_t)) {
+        pch = strtok(NULL, ":");
+        uint8_t value = std::stoi(std::string(pch), 0, 16);
+
+        /* Reversely set 64B public key gx/gy due to little endian sgx_ec256_public_t */
+        if (i < SGX_ECP256_KEY_SIZE)
+            g_sp_pub_key.gx[SGX_ECP256_KEY_SIZE - 1 - i] = value;
+        else
+            g_sp_pub_key.gy[2 * SGX_ECP256_KEY_SIZE - 1 - i] = value;
+        i++;
+    }
+
+    free(buffer);
+}
 // This ecall is a wrapper of sgx_ra_init to create the trusted
 // KE exchange key context needed for the remote attestation
 // SIGMA API's. Input pointers aren't checked since the trusted stubs
@@ -236,6 +245,8 @@ sgx_status_t enclave_init_ra(
 {
     // isv enclave call to trusted key exchange library.
     sgx_status_t ret;
+    initialize_sp_pub_key();
+
 #ifdef SUPPLIED_KEY_DERIVATION
     ret = sgx_ra_init_ex(&g_sp_pub_key, b_pse, key_derivation, p_context);
 #else
@@ -391,9 +402,6 @@ sgx_status_t enclave_store_domainkey (
             printf("Failed to decrypt the secret from server\n");
         }
         printf("Decrypt the serect success\n");
-
-for (int i = 0; i <secret_size; i++)
-printf("hyhyhy g_model_keys %d:%d.\n", i, *((uint8_t*)g_model_keys+i));
 
         // Once the server has the shared secret, it should be sealed to
         // persistent storage for future use. This will prevents having to

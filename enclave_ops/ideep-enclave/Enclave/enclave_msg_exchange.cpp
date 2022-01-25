@@ -204,10 +204,9 @@ ATTESTATION_STATUS send_request_receive_response(dh_session_t *session_info,
     uint32_t plaintext_length;
     sgx_status_t status;
     uint32_t retstatus;
-    secure_message_t* req_message;
-    secure_message_t* resp_message;
-    uint8_t *decrypted_data;
-    uint32_t decrypted_data_length;
+    secure_message_t* req_message = NULL;
+    secure_message_t* resp_message = NULL;
+    SecureMem decrypted_data;
     uint32_t plain_text_offset;
     uint8_t l_tag[TAG_SIZE];
     uint32_t max_resp_message_length;
@@ -226,10 +225,10 @@ ATTESTATION_STATUS send_request_receive_response(dh_session_t *session_info,
     }
 
     //Allocate memory for the AES-GCM request message
-    req_message = (secure_message_t*)malloc(sizeof(secure_message_t)+ inp_buff_len);
+    req_message = (secure_message_t*)malloc(sizeof(secure_message_t) + inp_buff_len);
     if(!req_message)
         return MALLOC_ERROR;
-    memset(req_message, 0, sizeof(secure_message_t)+ inp_buff_len);
+    memset(req_message, 0, sizeof(secure_message_t) + inp_buff_len);
 
     const uint32_t data2encrypt_length = (uint32_t)inp_buff_len;
 
@@ -265,19 +264,19 @@ ATTESTATION_STATUS send_request_receive_response(dh_session_t *session_info,
     memset(*out_buff, 0, max_out_buff_size);
 
     //Allocate memory for the response message
-    resp_message = (secure_message_t*)malloc(sizeof(secure_message_t)+ max_out_buff_size);
+    resp_message = (secure_message_t*)malloc(sizeof(secure_message_t) + max_out_buff_size);
     if(!resp_message)
     {
         SAFE_FREE(req_message);
         return MALLOC_ERROR;
     }
 
-    memset(resp_message, 0, sizeof(secure_message_t)+ max_out_buff_size);
+    memset(resp_message, 0, sizeof(secure_message_t) + max_out_buff_size);
 
     //Ocall to send the request to the Destination Enclave and get the response message back
     status = ocall_send_request(&retstatus, session_info->session_id, req_message,
-                                (sizeof(secure_message_t)+ inp_buff_len), max_out_buff_size,
-                                resp_message, (sizeof(secure_message_t)+ max_out_buff_size));
+                                (sizeof(secure_message_t) + inp_buff_len), max_out_buff_size,
+                                resp_message, (sizeof(secure_message_t) + max_out_buff_size));
     if (status == SGX_SUCCESS)
     {
         if ((ATTESTATION_STATUS)retstatus != SUCCESS)
@@ -294,7 +293,7 @@ ATTESTATION_STATUS send_request_receive_response(dh_session_t *session_info,
         return ATTESTATION_SE_ERROR;
     }
 
-    max_resp_message_length = sizeof(secure_message_t)+ max_out_buff_size;
+    max_resp_message_length = sizeof(secure_message_t) + max_out_buff_size;
 
     if(sizeof(resp_message) > max_resp_message_length)
     {
@@ -305,10 +304,10 @@ ATTESTATION_STATUS send_request_receive_response(dh_session_t *session_info,
 
     //Code to process the response message from the Destination Enclave
 
-    decrypted_data_length = resp_message->message_aes_gcm_data.payload_size;
-    plain_text_offset = decrypted_data_length;
-    decrypted_data = (uint8_t*)malloc(decrypted_data_length);
-    if(!decrypted_data)
+    decrypted_data.len = resp_message->message_aes_gcm_data.payload_size;
+    plain_text_offset = decrypted_data.len;
+    decrypted_data.data = (uint8_t*)malloc(decrypted_data.len);
+    if(!decrypted_data.data)
     {
         SAFE_FREE(req_message);
         SAFE_FREE(resp_message);
@@ -316,11 +315,11 @@ ATTESTATION_STATUS send_request_receive_response(dh_session_t *session_info,
     }
     memset(&l_tag, 0, 16);
 
-    memset(decrypted_data, 0, decrypted_data_length);
+    memset(decrypted_data.data, 0, decrypted_data.len);
 
     //Decrypt the response message payload
     status = sgx_rijndael128GCM_decrypt(&session_info->active.AEK, resp_message->message_aes_gcm_data.payload,
-                decrypted_data_length, decrypted_data,
+                decrypted_data.len, decrypted_data.data,
                 reinterpret_cast<uint8_t *>(&(resp_message->message_aes_gcm_data.reserved)),
                 sizeof(resp_message->message_aes_gcm_data.reserved), &(resp_message->message_aes_gcm_data.payload[plain_text_offset]), plaintext_length,
                 &resp_message->message_aes_gcm_data.payload_tag);
@@ -328,7 +327,6 @@ ATTESTATION_STATUS send_request_receive_response(dh_session_t *session_info,
     if(SGX_SUCCESS != status)
     {
         SAFE_FREE(req_message);
-        SAFE_FREE(decrypted_data);
         SAFE_FREE(resp_message);
         return status;
     }
@@ -338,17 +336,15 @@ ATTESTATION_STATUS send_request_receive_response(dh_session_t *session_info,
     {
         SAFE_FREE(req_message);
         SAFE_FREE(resp_message);
-        SAFE_FREE(decrypted_data);
         return INVALID_PARAMETER_ERROR;
     }
 
     //Update the value of the session nonce in the source enclave
     session_info->active.counter = session_info->active.counter + 1;
 
-    memcpy(out_buff_len, &decrypted_data_length, sizeof(decrypted_data_length));
-    memcpy(*out_buff, decrypted_data, decrypted_data_length);
+    memcpy(out_buff_len, &decrypted_data.len, sizeof(decrypted_data.len));
+    memcpy(*out_buff, decrypted_data.data, decrypted_data.len);
 
-    SAFE_FREE(decrypted_data);
     SAFE_FREE(req_message);
     SAFE_FREE(resp_message);
     return SUCCESS;
@@ -426,8 +422,7 @@ uint32_t enclave_la_message_exchange(uint32_t model_id)
     uint8_t* out_buff;
     uint32_t out_buff_len;
     uint32_t max_out_buff_size;
-    uint8_t* secret;
-    uint32_t secret_len;
+    SecureMem secret;
 
     target_fn_id = 0;
     msg_type = MESSAGE_EXCHANGE;
@@ -450,28 +445,23 @@ uint32_t enclave_la_message_exchange(uint32_t model_id)
     }
 
     //Un-marshal the secret response data
-    ke_status = umarshal_message_exchange_response(out_buff, &secret, &secret_len);
+    ke_status = umarshal_message_exchange_response(out_buff, &secret.data, &secret.len);
     if(ke_status != SUCCESS)
     {
         printf("failed to unmarshal the resp\n");
         goto out;
     }
 
-    if(secret_len != sizeof(g_model_key)) {
+    if(secret.len != sizeof(g_model_key)) {
         printf("the received buffer not matched with domainkey's size\n");
         ke_status = OUT_BUFFER_LENGTH_ERROR;
         goto out;
     }
-    memcpy(g_model_key, secret, secret_len);
-
-for (int i = 0; i<sizeof(g_model_key); i++) {
-printf("hyhy g_model_key[%d] is %d\n", i, g_model_key[i]);
-}
+    memcpy(g_model_key, secret.data, secret.len);
 
 out:
     SAFE_FREE(marshalled_inp_buff);
     SAFE_FREE(out_buff);
-    SAFE_FREE(secret);
 
     return ke_status;
 }
