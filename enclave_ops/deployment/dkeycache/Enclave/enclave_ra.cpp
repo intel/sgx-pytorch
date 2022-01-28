@@ -296,6 +296,7 @@ sgx_status_t enclave_verify_att_result_mac(sgx_ra_context_t context,
 {
     sgx_status_t ret;
     sgx_ec_key_128bit_t mk_key;
+    uint8_t mac[SGX_CMAC_MAC_SIZE] = {0};
 
     if(mac_size != sizeof(sgx_mac_t))
     {
@@ -309,8 +310,6 @@ sgx_status_t enclave_verify_att_result_mac(sgx_ra_context_t context,
     }
 
     do {
-        uint8_t mac[SGX_CMAC_MAC_SIZE] = {0};
-
         ret = sgx_ra_get_keys(context, SGX_RA_KEY_MK, &mk_key);
         if(SGX_SUCCESS != ret)
         {
@@ -333,6 +332,8 @@ sgx_status_t enclave_verify_att_result_mac(sgx_ra_context_t context,
     }
     while(0);
 
+    memset_s(&mk_key, sizeof(mk_key), 0, sizeof(mk_key));
+    memset_s(&mac, sizeof(mac), 0, sizeof(mac));
     return ret;
 }
 
@@ -409,6 +410,7 @@ sgx_status_t enclave_store_domainkey (
         // enclave is created again, the secret can be unsealed.
     } while(0);
 
+    memset_s(&sk_key, sizeof(sgx_ec_key_128bit_t), 0, sizeof(sgx_ec_key_128bit_t));
     return ret;
 }
 

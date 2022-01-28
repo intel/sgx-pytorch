@@ -88,21 +88,25 @@ static sgx_status_t get_encryption_key(uint32_t model_id)
 
     // Test message exchange between initiator enclave and responder enclave running in another process
     ret = enclave_la_message_exchange(model_id);
-    if (ret != 0) {
+    if (ret != 0)
         printf("enclave_la_message_exchange failed:0x%x\n", ret);
-        return SGX_ERROR_UNEXPECTED;
-    }
-    printf("Succeed to exchange secure message...\n");
+    else
+        printf("Succeed to exchange secure message...\n");
 
     // close ECDH session
-    ret = enclave_la_close_session();
-    if (ret != 0) {
-        printf("enclave_la_message_exchange failed:0x%x\n", ret);
+    if (0 != enclave_la_close_session()) {
+        printf("enclave_la_message_exchange failed.\n");
         return SGX_ERROR_UNEXPECTED;
     }
     printf("Succeed to close Session...\n");
 
+    if (ret != 0)
+        return SGX_ERROR_UNEXPECTED;
+
     sgx_thread_mutex_lock(&global_mutex);
+    /* Double check if model key had been retrieved. */
+    if (g_model_keys.find(model_id) != g_model_keys.end())
+        return SGX_SUCCESS;
 
     memcpy(&temp_key, &g_model_key, sizeof(temp_key));
     g_model_keys.insert(std::pair<uint32_t, sgx_aes_gcm_128bit_key_struct_t>(model_id, temp_key));

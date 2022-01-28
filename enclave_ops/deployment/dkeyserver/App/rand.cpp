@@ -30,6 +30,7 @@
 */
 #include "rand.h"
 #include "ecp.h"
+#include <string.h>
 
 uint32_t g_drng_feature = 0;
 
@@ -109,12 +110,6 @@ static int drng_rand32(uint32_t *out)
             return rc;
     }
 
-    if (g_drng_feature & DRNG_HAS_RDRAND) {
-        rc = rdrand32(out);
-        if (0 != rc)
-            printf("failed with rdrand32\n");
-    }
-
     return rc;
 }
 
@@ -135,8 +130,11 @@ int get_random(uint8_t *buf, size_t len)
             return -1;
         }
 
-    if (0 != memcpy_s(buf + i, sizeof(tmp_buf), &tmp_buf, sizeof(tmp_buf)))
-        return -1;
+        if (0 != memcpy_s(buf + i, sizeof(tmp_buf), &tmp_buf, sizeof(tmp_buf))) {
+            explicit_bzero(&tmp_buf, sizeof(tmp_buf));
+            return -1;
+        }
+        explicit_bzero(&tmp_buf, sizeof(tmp_buf));
     }
 
     return 0;

@@ -159,6 +159,9 @@ int sp_ra_proc_msg1_req(const sample_ra_msg1_t *p_msg1,
     sample_ecc_state_handle_t ecc_state = NULL;
     sample_status_t sample_ret = SAMPLE_SUCCESS;
     bool derive_ret = false;
+    sample_ec256_public_t pub_key = {{0},{0}};
+    sample_ec256_private_t priv_key = {{0}};
+    sample_ec_dh_shared_t dh_key = {{0}};
 
     if (!p_msg1 || !pp_msg2 || (msg1_size != sizeof(sample_ra_msg1_t))) {
         return -1;
@@ -195,8 +198,6 @@ int sp_ra_proc_msg1_req(const sample_ra_msg1_t *p_msg1,
             break;
         }
 
-        sample_ec256_public_t pub_key = {{0},{0}};
-        sample_ec256_private_t priv_key = {{0}};
         sample_ret = sample_ecc256_create_key_pair(&priv_key, &pub_key,
                                                    ecc_state);
         if (SAMPLE_SUCCESS != sample_ret)
@@ -223,7 +224,6 @@ int sp_ra_proc_msg1_req(const sample_ra_msg1_t *p_msg1,
         }
 
         // Generate the client/SP shared secret
-        sample_ec_dh_shared_t dh_key = {{0}};
         sample_ret = sample_ecc256_compute_shared_dhkey(&priv_key,
             (sample_ec256_public_t *)&p_msg1->g_a,
             (sample_ec256_dh_shared_t *)&dh_key,
@@ -399,6 +399,9 @@ int sp_ra_proc_msg1_req(const sample_ra_msg1_t *p_msg1,
         p_msg2->sig_rl_size = sig_rl_size;
 
     } while(0);
+
+    explicit_bzero(&priv_key, sizeof(priv_key));
+    explicit_bzero(&dh_key, sizeof(dh_key));
 
     if (ret)
     {

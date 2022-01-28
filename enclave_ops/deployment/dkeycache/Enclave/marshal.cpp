@@ -51,6 +51,7 @@ uint32_t marshal_input_parameters_e3_foo1(uint32_t target_fn_id, uint32_t msg_ty
     ms = (ms_in_msg_exchange_t *)malloc(ms_len);
     if(!ms)
     {
+        memset_s(temp_buff, param_len, 0, param_len);
         SAFE_FREE(temp_buff);
         return MALLOC_ERROR;
     }
@@ -60,6 +61,7 @@ uint32_t marshal_input_parameters_e3_foo1(uint32_t target_fn_id, uint32_t msg_ty
     memcpy(&ms->inparam_buff, temp_buff, param_len);
     *marshalled_buff = (uint8_t*)ms;
     *marshalled_buff_len = ms_len;
+    memset_s(temp_buff, param_len, 0, param_len);
     SAFE_FREE(temp_buff);
     return SUCCESS;
 }
