@@ -31,7 +31,7 @@
 
 include ../buildenv.mk
 
-SGX_DEBUG ?= 1
+SGX_DEBUG ?= 0
 
 App_Name := dkeyserver
 Enclave_Name := libenclave-$(App_Name).so
@@ -161,8 +161,8 @@ App/enclave_u.h: $(SGX_EDGER8R) Enclave/enclave.edl
 App/enclave_u.c: App/enclave_u.h
 
 App/enclave_u.o: App/enclave_u.c
-	@$(CC) $(SGX_COMMON_CFLAGS) $(App_C_Flags) -c $< -o $@
-	@echo "CC   <=  $<"
+	@$(CXX) $(SGX_COMMON_CFLAGS) $(App_C_Flags) -c $< -o $@
+	@echo "CXX   <=  $<"
 
 App/%.o: App/%.cpp
 	@$(CXX) $(SGX_COMMON_CXXFLAGS) $(App_Cpp_Flags) -c $< -o $@
@@ -180,8 +180,8 @@ Enclave/enclave_t.h: $(SGX_EDGER8R) Enclave/enclave.edl
 Enclave/enclave_t.c: Enclave/enclave_t.h
 
 Enclave/enclave_t.o: Enclave/enclave_t.c
-	@$(CC) $(SGX_COMMON_CFLAGS) $(Enclave_C_Flags) -c $< -o $@
-	@echo "CC   <=  $<"
+	@$(CXX) $(SGX_COMMON_CFLAGS) $(Enclave_C_Flags) -c $< -o $@
+	@echo "CXX   <=  $<"
 
 Enclave/%.o: Enclave/%.cpp Enclave/enclave_t.h
 	@$(CXX) $(SGX_COMMON_CXXFLAGS) $(Enclave_Cpp_Flags) -c $< -o $@

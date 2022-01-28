@@ -140,25 +140,31 @@ extern "C" uint32_t message_exchange_response_generator(uint8_t* decrypted_data,
     uint32_t model_id;
     uint8_t* out = NULL;
     uint32_t out_size = 0;
-    
-    if(!decrypted_data || !resp_length)
+    int ret = SUCCESS;
+
+    if (!decrypted_data || !resp_length)
         return INVALID_PARAMETER_ERROR;
     
     ms = (ms_in_msg_exchange_t *)decrypted_data;
 
-    if(umarshal_message_exchange_request(&model_id,ms) != SUCCESS)
+    if (umarshal_message_exchange_request(&model_id, ms) != SUCCESS)
         return ATTESTATION_ERROR;
 
     get_message_exchange_response(model_id, &out, &out_size);
-    if(!out || !out_size) {
-        return INVALID_PARAMETER;
+    if (!out || !out_size) {
+        ret = INVALID_PARAMETER;
+	goto out;
     }
 
-    if(marshal_message_exchange_response(resp_buffer, resp_length, out, out_size) != SUCCESS)
-        return MALLOC_ERROR;
+    if (marshal_message_exchange_response(resp_buffer, resp_length, out, out_size) != SUCCESS)
+        ret = MALLOC_ERROR;
 
-    SAFE_FREE(out);
-    return SUCCESS;
+out:
+    if (out) {
+        memset_s(out, out_size, 0, out_size);
+        SAFE_FREE(out);
+    }
+    return ret;
 }
 
 
@@ -319,7 +325,7 @@ extern "C" ATTESTATION_STATUS enclave_la_generate_response(secure_message_t* req
                                      uint32_t max_payload_size,
                                      secure_message_t* resp_message,
                                      uint32_t resp_message_size,
-                				     uint32_t session_id)
+      				     uint32_t session_id)
 {
     const uint8_t* plaintext;
     uint32_t plaintext_length;
@@ -335,31 +341,24 @@ extern "C" ATTESTATION_STATUS enclave_la_generate_response(secure_message_t* req
     dh_session_t *session_info;
     secure_message_t* temp_resp_message;
     uint32_t ret;
-    sgx_status_t status;
+    int status;
+    uint32_t data2encrypt_length;
 
     plaintext = (const uint8_t*)(" ");
     plaintext_length = 0;
 
-    if(!req_message || !resp_message)
-    {
+    if (!req_message || !resp_message)
         return INVALID_PARAMETER_ERROR;
-    }
 
     //Get the session information from the map corresponding to the source enclave id
     std::map<uint32_t, dh_session_t>::iterator it = g_dest_session_info_map.find(session_id);
-    if(it != g_dest_session_info_map.end())
-    {
+    if (it != g_dest_session_info_map.end())
         session_info = &it->second;
-    }
     else
-    {
         return INVALID_SESSION;
-    }
 
-    if(session_info->status != ACTIVE)
-    {
+    if (session_info->status != ACTIVE)
         return INVALID_SESSION;
-    }
 
     //Set the decrypted data length to the payload size obtained from the message
     decrypted_data_length = req_message->message_aes_gcm_data.payload_size;
@@ -368,16 +367,14 @@ extern "C" ATTESTATION_STATUS enclave_la_generate_response(secure_message_t* req
     expected_payload_size = req_message_size - header_size;
 
     //Verify the size of the payload
-    if(expected_payload_size != decrypted_data_length)
+    if (expected_payload_size != decrypted_data_length)
         return INVALID_PARAMETER_ERROR;
 
     memset(&l_tag, 0, 16);
     plain_text_offset = decrypted_data_length;
     decrypted_data = (uint8_t*)malloc(decrypted_data_length);
-    if(!decrypted_data)
-    {
-            return MALLOC_ERROR;
-    }
+    if (!decrypted_data)
+        return MALLOC_ERROR;
 
     memset(decrypted_data, 0, decrypted_data_length);
 
@@ -387,68 +384,52 @@ extern "C" ATTESTATION_STATUS enclave_la_generate_response(secure_message_t* req
                 reinterpret_cast<uint8_t *>(&(req_message->message_aes_gcm_data.reserved)),
                 sizeof(req_message->message_aes_gcm_data.reserved), &(req_message->message_aes_gcm_data.payload[plain_text_offset]), plaintext_length,
                 &req_message->message_aes_gcm_data.payload_tag);
-
-    if(SGX_SUCCESS != status)
-    {
-        SAFE_FREE(decrypted_data);
-        return status;
-    }
+    if (SGX_SUCCESS != status)
+        goto clean;
 
     //Casting the decrypted data to the marshaling structure type to obtain type of request (generic message exchange/enclave to enclave call)
     ms = (ms_in_msg_exchange_t *)decrypted_data;
 
     // Verify if the nonce obtained in the request is equal to the session nonce
-    if(*((uint32_t*)req_message->message_aes_gcm_data.reserved) != session_info->active.counter || *((uint32_t*)req_message->message_aes_gcm_data.reserved) > ((uint32_t)-2))
-    {
-        SAFE_FREE(decrypted_data);
-        return INVALID_PARAMETER_ERROR;
+    if (*((uint32_t*)req_message->message_aes_gcm_data.reserved) != session_info->active.counter || *((uint32_t*)req_message->message_aes_gcm_data.reserved) > ((uint32_t)-2)) {
+        goto clean;
+        status = INVALID_PARAMETER_ERROR;
     }
 
-    if(ms->msg_type == MESSAGE_EXCHANGE)
-    {
+    if (ms->msg_type == MESSAGE_EXCHANGE) {
         //Call the generic secret response generator for message exchange
         ret = message_exchange_response_generator((uint8_t*)decrypted_data, &resp_data, &resp_data_length);
-        if(ret !=0)
-        {
-            SAFE_FREE(decrypted_data);
-            SAFE_FREE(resp_data);
-            return INVALID_SESSION;
+        if (ret !=0) {
+            status = INVALID_SESSION;
+            goto clean;
         }
     }
-    else
-    {
-        SAFE_FREE(decrypted_data);
-        return INVALID_REQUEST_TYPE_ERROR;
+    else {
+        status = INVALID_REQUEST_TYPE_ERROR;
+        goto clean;
     }
 
-
-    if(resp_data_length > max_payload_size)
-    {
-        SAFE_FREE(resp_data);
-        SAFE_FREE(decrypted_data);
-        return OUT_BUFFER_LENGTH_ERROR;
+    if (resp_data_length > max_payload_size) {
+        status = OUT_BUFFER_LENGTH_ERROR;
+        goto clean;
     }
 
     resp_message_calc_size = sizeof(secure_message_t)+ resp_data_length;
 
-    if(resp_message_calc_size > resp_message_size)
-    {
-        SAFE_FREE(resp_data);
-        SAFE_FREE(decrypted_data);
-        return OUT_BUFFER_LENGTH_ERROR;
+    if (resp_message_calc_size > resp_message_size) {
+        status = OUT_BUFFER_LENGTH_ERROR;
+        goto clean;
     }
 
     //Code to build the response back to the Source Enclave
     temp_resp_message = (secure_message_t*)malloc(resp_message_calc_size);
-    if(!temp_resp_message)
-    {
-            SAFE_FREE(resp_data);
-            SAFE_FREE(decrypted_data);
-            return MALLOC_ERROR;
+    if (!temp_resp_message) {
+        status = MALLOC_ERROR;
+        goto clean;
     }
 
     memset(temp_resp_message,0,sizeof(secure_message_t)+ resp_data_length);
-    const uint32_t data2encrypt_length = (uint32_t)resp_data_length;
+    data2encrypt_length = (uint32_t)resp_data_length;
     temp_resp_message->session_id = session_info->session_id;
     temp_resp_message->message_aes_gcm_data.payload_size = data2encrypt_length;
 
@@ -465,22 +446,30 @@ extern "C" ATTESTATION_STATUS enclave_la_generate_response(secure_message_t* req
                 sizeof(temp_resp_message->message_aes_gcm_data.reserved), plaintext, plaintext_length,
                 &(temp_resp_message->message_aes_gcm_data.payload_tag));
 
-    if(SGX_SUCCESS != status)
-    {
-        SAFE_FREE(resp_data);
-        SAFE_FREE(decrypted_data);
-        SAFE_FREE(temp_resp_message);
-        return status;
-    }
+    if (SGX_SUCCESS != status)
+        goto clean;
 
     memset(resp_message, 0, sizeof(secure_message_t)+ resp_data_length);
     memcpy(resp_message, temp_resp_message, sizeof(secure_message_t)+ resp_data_length);
 
-    SAFE_FREE(decrypted_data);
-    SAFE_FREE(resp_data);
-    SAFE_FREE(temp_resp_message);
+clean:
 
-    return SUCCESS;
+    if (decrypted_data) {
+        memset_s(decrypted_data, decrypted_data_length, 0, decrypted_data_length);
+        SAFE_FREE(decrypted_data);
+    }
+
+    if (resp_data) {
+        memset_s(resp_data, resp_data_length, 0, resp_data_length);
+        SAFE_FREE(resp_data);
+    }
+
+    if (temp_resp_message) {
+        memset_s(temp_resp_message, resp_message_calc_size, 0, resp_message_calc_size);
+        SAFE_FREE(temp_resp_message);
+    }
+
+    return status;
 }
 
 
@@ -505,6 +494,7 @@ extern "C" ATTESTATION_STATUS enclave_la_end_session(uint32_t session_id)
 
     //session_id = session_info.session_id;
     //Erase the session information for the current session
+    memset_s(&session_info, sizeof(dh_session_t), 0, sizeof(dh_session_t));
     g_dest_session_info_map.erase(session_id);
 
     //Update the session id tracker

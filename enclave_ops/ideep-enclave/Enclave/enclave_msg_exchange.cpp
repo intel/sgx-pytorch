@@ -66,13 +66,14 @@ std::map<sgx_enclave_id_t, dh_session_t>g_dest_session_info_map;
 #define UNUSED(val) (void)(val)
 
 #define RESPONDER_PRODID 1
+#define RESPONDER_SVN    0
 
 std::map<sgx_enclave_id_t, dh_session_t>g_src_session_info_map;
 
 dh_session_t g_session;
 
 // This is hardcoded responder enclave's MRSIGNER for demonstration purpose. The content aligns to responder enclave's signing key
-sgx_measurement_t g_responder_mrsigner = {
+constexpr sgx_measurement_t g_responder_mrsigner = {
 	{
 		0x83, 0xd7, 0x19, 0xe7, 0x7d, 0xea, 0xca, 0x14, 0x70, 0xf6, 0xba, 0xf6, 0x2a, 0x4d, 0x77, 0x43,
 		0x03, 0xc8, 0x99, 0xdb, 0x69, 0x02, 0x0f, 0x9c, 0x70, 0xee, 0x1d, 0xfc, 0x08, 0xc7, 0xce, 0x9e
@@ -97,7 +98,8 @@ extern "C" uint32_t verify_peer_enclave_trust(sgx_dh_session_enclave_identity_t*
         return ENCLAVE_TRUST_ERROR;
 
     // check peer enclave's product ID and enclave attribute (should be INITIALIZED'ed)
-    if (peer_enclave_identity->isv_prod_id != RESPONDER_PRODID || !(peer_enclave_identity->attributes.flags & SGX_FLAGS_INITTED))
+    if (peer_enclave_identity->isv_prod_id != RESPONDER_PRODID ||
+            peer_enclave_identity->isv_svn != RESPONDER_SVN || !(peer_enclave_identity->attributes.flags & SGX_FLAGS_INITTED))
         return ENCLAVE_TRUST_ERROR;
 
     // check the enclave isn't loaded in enclave debug mode, except that the project is built for debug purpose
@@ -118,15 +120,13 @@ ATTESTATION_STATUS create_session(dh_session_t *session_info)
     sgx_dh_msg2_t dh_msg2;            //Diffie-Hellman Message 2
     sgx_dh_msg3_t dh_msg3;            //Diffie-Hellman Message 3
     uint32_t session_id;
+    uint32_t status;
     uint32_t retstatus;
-    sgx_status_t status = SGX_SUCCESS;
     sgx_dh_session_t sgx_dh_session;
     sgx_dh_session_enclave_identity_t responder_identity;
 
-    if(!session_info)
-    {
+    if (!session_info)
         return INVALID_PARAMETER_ERROR;
-    }
 
     memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
     memset(&dh_msg1, 0, sizeof(sgx_dh_msg1_t));
@@ -136,59 +136,66 @@ ATTESTATION_STATUS create_session(dh_session_t *session_info)
 
     //Intialize the session as a session initiator
     status = sgx_dh_init_session(SGX_DH_SESSION_INITIATOR, &sgx_dh_session);
-    if(SGX_SUCCESS != status)
-    {
-            return status;
-    }
+    if (SGX_SUCCESS != status)
+        goto out;
 
     //Ocall to request for a session with the destination enclave and obtain session id and Message 1 if successful
-    status = ocall_session_request(&retstatus, &dh_msg1, &session_id);
-    if (status == SGX_SUCCESS)
-    {
-        if ((ATTESTATION_STATUS)retstatus != SUCCESS)
-            return ((ATTESTATION_STATUS)retstatus);
+    retstatus = ocall_session_request(&retstatus, &dh_msg1, &session_id);
+    if (status == SGX_SUCCESS) {
+        if ((ATTESTATION_STATUS)retstatus != SUCCESS) {
+            status = ((ATTESTATION_STATUS)retstatus);
+            goto out;
+        }
     }
-    else
-    {
-        return ATTESTATION_SE_ERROR;
+    else {
+        status = ATTESTATION_SE_ERROR;
+        goto out;
     }
+
     //Process the message 1 obtained from desination enclave and generate message 2
     status = sgx_dh_initiator_proc_msg1(&dh_msg1, &dh_msg2, &sgx_dh_session);
-    if(SGX_SUCCESS != status)
-    {
-         return status;
+    if (SGX_SUCCESS != status) {
+         goto out;
     }
 
     //Send Message 2 to Destination Enclave and get Message 3 in return
     status = ocall_exchange_report(&retstatus, &dh_msg2, &dh_msg3, session_id);
-    if (status == SGX_SUCCESS)
-    {
-        if ((ATTESTATION_STATUS)retstatus != SUCCESS)
-            return ((ATTESTATION_STATUS)retstatus);
+    if (status == SGX_SUCCESS) {
+        if ((ATTESTATION_STATUS)retstatus != SUCCESS) {
+            status = ((ATTESTATION_STATUS)retstatus);
+            goto out;
+        }
     }
-    else
-    {
-        return ATTESTATION_SE_ERROR;
+    else {
+        status = ATTESTATION_SE_ERROR;
+	goto out;
     }
 
     //Process Message 3 obtained from the destination enclave
     status = sgx_dh_initiator_proc_msg3(&dh_msg3, &sgx_dh_session, &dh_aek, &responder_identity);
-    if(SGX_SUCCESS != status)
-    {
-        return status;
+    if (SGX_SUCCESS != status) {
+        goto out;
     }
 
     // Verify the identity of the destination enclave
-    if(verify_peer_enclave_trust(&responder_identity) != SUCCESS)
-    {
-        return INVALID_SESSION;
+    if (verify_peer_enclave_trust(&responder_identity) != SUCCESS) {
+        status = INVALID_SESSION;
+	goto out;
     }
 
     memcpy(session_info->active.AEK, &dh_aek, sizeof(sgx_key_128bit_t));
     session_info->session_id = session_id;
     session_info->active.counter = 0;
     session_info->status = ACTIVE;
-    memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
+
+    status = SGX_SUCCESS;
+
+out:
+    memset_s(&dh_aek, sizeof(sgx_key_128bit_t), 0, sizeof(sgx_key_128bit_t));
+    memset_s(&dh_msg1, sizeof(sgx_dh_msg1_t), 0, sizeof(sgx_dh_msg1_t));
+    memset_s(&dh_msg2, sizeof(sgx_dh_msg2_t), 0, sizeof(sgx_dh_msg2_t));
+    memset_s(&dh_msg3, sizeof(sgx_dh_msg3_t), 0, sizeof(sgx_dh_msg3_t));
+    memset_s(&sgx_dh_session, sizeof(sgx_dh_session_t), 0, sizeof(sgx_dh_session_t));
     return status;
 }
 
@@ -476,7 +483,7 @@ uint32_t enclave_la_close_session()
     ke_status = close_session(&g_session);
 
     //Erase the session context
-    memset(&g_session, 0, sizeof(dh_session_t));
+    memset_s(&g_session, sizeof(dh_session_t), 0, sizeof(dh_session_t));
     return ke_status;
 }
 
