@@ -51,6 +51,7 @@ public:
     ~SecureMem() {
         if (data) {
             memset_s(data, len, 0, len);
+            free(data);
             data = NULL;
         }
         len = 0;

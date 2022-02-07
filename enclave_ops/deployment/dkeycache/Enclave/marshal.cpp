@@ -116,14 +116,15 @@ uint32_t marshal_retval_and_output_parameters_e2_foo1(uint8_t** resp_buffer, uin
     retval_len = sizeof(retval);
     ret_param_len = retval_len; //no out parameters
     temp_buff = (uint8_t*)malloc(ret_param_len);
-    if(!temp_buff)
+    if (!temp_buff)
         return MALLOC_ERROR;
 
     memcpy(temp_buff, &retval, sizeof(retval)); 
     ms_len = sizeof(ms_out_msg_exchange_t) + ret_param_len;
     ms = (ms_out_msg_exchange_t *)malloc(ms_len);
-    if(!ms)
+    if (!ms)
     {
+        memset_s(temp_buff, ret_param_len, 0, ret_param_len);
         SAFE_FREE(temp_buff);
         return MALLOC_ERROR;
     }
@@ -132,6 +133,7 @@ uint32_t marshal_retval_and_output_parameters_e2_foo1(uint8_t** resp_buffer, uin
     memcpy(&ms->ret_outparam_buff, temp_buff, ret_param_len);
     *resp_buffer = (uint8_t*)ms;
     *resp_length = ms_len;
+    memset_s(temp_buff, ret_param_len, 0, ret_param_len);
     SAFE_FREE(temp_buff);
     return SUCCESS;
 }

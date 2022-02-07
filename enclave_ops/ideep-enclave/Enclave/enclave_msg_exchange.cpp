@@ -53,9 +53,6 @@ sgx_aes_gcm_128bit_key_t g_model_key = {2};
 
 #define MAX_SESSION_COUNT  16
 
-//number of open sessions
-uint32_t g_session_count = 0;
-
 //Array of open session ids
 session_id_tracker_t *g_session_id_tracker[MAX_SESSION_COUNT];
 
