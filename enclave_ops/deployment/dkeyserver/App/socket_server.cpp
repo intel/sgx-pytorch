@@ -349,6 +349,7 @@ int sp_ra_proc_msg1_req(const sample_ra_msg1_t *p_msg1,
             break;
         }
 
+        // Note: never store private keys in plaintext on the disk
         std::string priv = SP_PRIV_KEY;
         std::stringstream priv_stream(priv);
         std::string segment;

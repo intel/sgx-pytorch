@@ -204,6 +204,12 @@ sgx_status_t key_derivation(const sgx_ec256_dh_shared_t* shared_key,
 #pragma message ("Default key derivation function is used.")
 #endif
 
+/*
+ * This function gets the public keys from .pem file.
+ * For specific scenario, suggest adding a check to verify
+ * that the file containing public keys and certificates
+ * are not writeable by the application.
+ */
 static void initialize_sp_pub_key()
 {
     std::string pub = SP_PUB_KEY;
@@ -226,6 +232,7 @@ static void initialize_sp_pub_key()
 
     free(buffer);
 }
+
 // This ecall is a wrapper of sgx_ra_init to create the trusted
 // KE exchange key context needed for the remote attestation
 // SIGMA API's. Input pointers aren't checked since the trusted stubs
@@ -363,7 +370,6 @@ sgx_status_t enclave_store_domainkey (
 {
     sgx_status_t ret = SGX_SUCCESS;
     sgx_ec_key_128bit_t sk_key;
-    uint32_t i;
 
     do {
         if (secret_size % sizeof(model_key_t) != 0 || secret_size == 0)

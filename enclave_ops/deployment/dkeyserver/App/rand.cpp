@@ -81,25 +81,6 @@ static int rdseed32(uint32_t *out)
     return -1;
 }
 
-static int rdrand32(uint32_t *out)
-{
-    uint8_t ret;
-    int i;
-
-    for (i = 0; i < DRNG_MAX_TRIES; i++) {
-        __asm__ __volatile__ (
-        "RDRAND %0;"
-        "setc %1;"
-        : "=r"(*out), "=qm"(ret)
-        );
-
-        if (ret)
-            return 0;
-    }
-
-    return -1;
-}
-
 static int drng_rand32(uint32_t *out)
 {
     int rc = -1;
