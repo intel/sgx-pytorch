@@ -87,20 +87,16 @@ static sgx_status_t get_encryption_key(uint32_t model_id)
 
     // Test message exchange between initiator enclave and responder enclave running in another process
     ret = enclave_la_message_exchange(model_id);
-    if (ret != 0) {
+    if (ret != 0)
         printf("enclave_la_message_exchange failed:0x%x\n", ret);
-        goto out;
-    }
     else
         printf("Succeed to exchange secure message...\n");
 
     // close ECDH session
-    ret = enclave_la_close_session();
-    if (ret != 0) {
+    if (0 != enclave_la_close_session()) {
         printf("enclave_la_message_exchange failed.\n");
-        goto out;
+        ret = -1;
     }
-    printf("Succeed to close Session...\n");
 
 out:
     sgx_thread_mutex_lock(&global_mutex);
