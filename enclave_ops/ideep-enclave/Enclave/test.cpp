@@ -111,7 +111,7 @@ out:
     if (g_model_keys.find(model_id) != g_model_keys.end())
         return SGX_SUCCESS;
 
-    memcpy(&temp_key, &g_model_key, sizeof(temp_key));
+    memcpy_s(&temp_key, sizeof(temp_key), &g_model_key, sizeof(g_model_key));
     g_model_keys.insert(std::pair<uint32_t, sgx_aes_gcm_128bit_key_struct_t>(model_id, temp_key));
 
     memset_s(&temp_key, sizeof(sgx_aes_gcm_128bit_key_struct_t), 0, sizeof(sgx_aes_gcm_128bit_key_struct_t));

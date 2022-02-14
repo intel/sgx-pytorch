@@ -44,7 +44,7 @@
 #include "dh_session_protocol.h"
 #include "marshal.h"
 #include "enclave_msg_exchange.h"
-
+#include "mbusafecrt.h"
 #include <Enclave_t.h>
 
 extern "C" void printf(const char *fmt, ...);
@@ -180,7 +180,7 @@ ATTESTATION_STATUS create_session(dh_session_t *session_info)
 	goto out;
     }
 
-    memcpy(session_info->active.AEK, &dh_aek, sizeof(sgx_key_128bit_t));
+    memcpy_s(session_info->active.AEK, sizeof(sgx_key_128bit_t), &dh_aek, sizeof(sgx_key_128bit_t));
     session_info->session_id = session_id;
     session_info->active.counter = 0;
     session_info->status = ACTIVE;
@@ -240,7 +240,8 @@ ATTESTATION_STATUS send_request_receive_response(dh_session_t *session_info,
     req_message->message_aes_gcm_data.payload_size = data2encrypt_length;
 
     //Use the session nonce as the payload IV
-    memcpy(req_message->message_aes_gcm_data.reserved, &session_info->active.counter, sizeof(session_info->active.counter));
+    memcpy_s(req_message->message_aes_gcm_data.reserved, sizeof(req_message->message_aes_gcm_data.reserved),
+             &session_info->active.counter, sizeof(session_info->active.counter));
 
     //Set the session ID of the message to the current session id
     req_message->session_id = session_info->session_id;
@@ -346,8 +347,8 @@ ATTESTATION_STATUS send_request_receive_response(dh_session_t *session_info,
     //Update the value of the session nonce in the source enclave
     session_info->active.counter = session_info->active.counter + 1;
 
-    memcpy(out_buff_len, &decrypted_data.len, sizeof(decrypted_data.len));
-    memcpy(*out_buff, decrypted_data.data, decrypted_data.len);
+    memcpy_s(out_buff_len, sizeof(decrypted_data.len), &decrypted_data.len, sizeof(decrypted_data.len));
+    memcpy_s(*out_buff, decrypted_data.len, decrypted_data.data, decrypted_data.len);
 
     SAFE_FREE(req_message);
     SAFE_FREE(resp_message);
@@ -461,7 +462,7 @@ uint32_t enclave_la_message_exchange(uint32_t model_id)
         ke_status = OUT_BUFFER_LENGTH_ERROR;
         goto out;
     }
-    memcpy(g_model_key, secret.data, secret.len);
+    memcpy_s(g_model_key, sizeof(g_model_key), secret.data, secret.len);
 
 out:
     SAFE_FREE(marshalled_inp_buff);

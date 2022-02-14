@@ -35,6 +35,7 @@
 #include "marshal.h"
 #include "stdlib.h"
 #include "string.h"
+#include "mbusafecrt.h"
 
 uint32_t marshal_input_parameters_e2_foo1(uint32_t target_fn_id, uint32_t msg_type, uint32_t var1, uint32_t var2, uint8_t** marshalled_buff, uint32_t* marshalled_buff_len)
 {
@@ -200,7 +201,7 @@ uint32_t marshal_message_exchange_response(uint8_t** resp_buffer, uint32_t* resp
 
     ms->retval_len = (uint32_t)retval_len;
     ms->ret_outparam_buff_len = (uint32_t)ret_param_len;
-    memcpy(&ms->ret_outparam_buff, out, out_size);
+    memcpy_s(&ms->ret_outparam_buff, ret_param_len, out, out_size);
     *resp_buffer = (uint8_t*)ms;
     *resp_length = ms_len;
     return SUCCESS;
@@ -219,7 +220,7 @@ uint32_t umarshal_message_exchange_response(uint8_t* out_buff, uint8_t** secret,
     {
         return MALLOC_ERROR;
     }
-    memcpy(*secret, ms->ret_outparam_buff, retval_len);
+    memcpy_s(*secret, retval_len, ms->ret_outparam_buff, retval_len);
     *secret_len = retval_len;
     return SUCCESS;
 }
