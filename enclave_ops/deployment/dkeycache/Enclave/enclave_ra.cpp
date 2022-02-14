@@ -144,12 +144,13 @@ bool derive_key(
     sgx_ret = sgx_sha256_close(sha_context);
 
     assert(sizeof(sgx_ec_key_128bit_t)* 2 == sizeof(sgx_sha256_hash_t));
-    memcpy(first_derived_key, &key_material, sizeof(sgx_ec_key_128bit_t));
-    memcpy(second_derived_key, (uint8_t*)&key_material + sizeof(sgx_ec_key_128bit_t), sizeof(sgx_ec_key_128bit_t));
+    memcpy_s(first_derived_key, sizeof(sgx_ec_key_128bit_t), &key_material, sizeof(sgx_ec_key_128bit_t));
+    memcpy_s(second_derived_key, sizeof(sgx_ec_key_128bit_t),
+             (uint8_t*)&key_material + sizeof(sgx_ec_key_128bit_t), sizeof(sgx_ec_key_128bit_t));
 
     // memset here can be optimized away by compiler, so please use memset_s on
     // windows for production code and similar functions on other OSes.
-    memset(&key_material, 0, sizeof(sgx_sha256_hash_t));
+    memset_s(&key_material, sizeof(sgx_sha256_hash_t), 0, sizeof(sgx_sha256_hash_t));
 
     return true;
 }

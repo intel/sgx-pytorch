@@ -236,7 +236,7 @@ extern "C" ATTESTATION_STATUS enclave_la_session_request(sgx_dh_msg1_t *dh_msg1,
         SAFE_FREE(g_session_id_tracker[*session_id]);
         return status;
     }
-    memcpy(&session_info.in_progress.dh_session, &sgx_dh_session, sizeof(sgx_dh_session_t));
+    memcpy_s(&session_info.in_progress.dh_session, sizeof(sgx_dh_session_t), &sgx_dh_session, sizeof(sgx_dh_session_t));
     //Store the session information under the correspoding source enlave id key
     g_dest_session_info_map.insert(std::pair<uint32_t, dh_session_t>(*session_id, session_info));
 
@@ -281,7 +281,7 @@ extern "C" ATTESTATION_STATUS enclave_la_exchange_report(sgx_dh_msg2_t *dh_msg2,
             break;
         }
 
-        memcpy(&sgx_dh_session, &session_info->in_progress.dh_session, sizeof(sgx_dh_session_t));
+        memcpy_s(&sgx_dh_session, sizeof(sgx_dh_session_t), &session_info->in_progress.dh_session, sizeof(sgx_dh_session_t));
 
         dh_msg3->msg3_body.additional_prop_length = 0;
         //Process message 2 from source enclave and obtain message 3
@@ -306,7 +306,7 @@ extern "C" ATTESTATION_STATUS enclave_la_exchange_report(sgx_dh_msg2_t *dh_msg2,
         session_info->session_id = session_id;
         session_info->status = ACTIVE;
         session_info->active.counter = 0;
-        memcpy(session_info->active.AEK, &dh_aek, sizeof(sgx_key_128bit_t));
+        memcpy_s(session_info->active.AEK, sizeof(sgx_key_128bit_t), &dh_aek, sizeof(sgx_key_128bit_t));
         memset(&dh_aek,0, sizeof(sgx_key_128bit_t));
         g_session_count++;
     }while(0);
@@ -437,7 +437,8 @@ extern "C" ATTESTATION_STATUS enclave_la_generate_response(secure_message_t* req
     session_info->active.counter = session_info->active.counter + 1;
 
     //Set the response nonce as the session nonce
-    memcpy(&temp_resp_message->message_aes_gcm_data.reserved,&session_info->active.counter,sizeof(session_info->active.counter));
+    memcpy_s(&temp_resp_message->message_aes_gcm_data.reserved, sizeof(temp_resp_message->message_aes_gcm_data.reserved),
+           &session_info->active.counter, sizeof(session_info->active.counter));
 
     //Prepare the response message with the encrypted payload
     status = sgx_rijndael128GCM_encrypt(&session_info->active.AEK, (uint8_t*)resp_data, data2encrypt_length,

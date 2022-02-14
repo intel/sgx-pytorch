@@ -65,7 +65,7 @@ static char* hexToCharIP(struct in_addr addrIP)
 {
     char* ip;
     unsigned int intIP;
-    memcpy(&intIP, &addrIP,sizeof(unsigned int));
+    memcpy_s(&intIP, sizeof(intIP), &addrIP, sizeof(addrIP));
     int a = (intIP >> 24) & 0xFF;
     int b = (intIP >> 16) & 0xFF;
     int c = (intIP >> 8) & 0xFF;
@@ -601,7 +601,7 @@ int sp_ra_proc_msg3_req(const sample_ra_msg3_t *p_msg3,
             ret = SP_INTERNAL_ERROR;
             break;
         }
-        memcpy(qve_report_info.nonce.rand, rand_nonce, sizeof(rand_nonce));
+        memcpy_s(qve_report_info.nonce.rand, sizeof(qve_report_info.nonce.rand), rand_nonce, sizeof(rand_nonce));
 #if 0
         // Trusted quote verification
         if (use_qve) {
