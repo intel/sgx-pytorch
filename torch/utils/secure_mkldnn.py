@@ -1,6 +1,7 @@
 import torch
 import time
-from Crypto.Cipher import AES
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 import ctypes
 from ctypes import *
 import struct
@@ -116,6 +117,7 @@ class _SecureMkldnnConvNd(torch.jit.ScriptModule):
         assert torch.is_tensor(tensor), "Please input torch.tensor"
         mac = bytes(16)
         iv = os.urandom(12)
+        aad = b''
         num_in_int32 = int(1 + tensor.dim() + tensor.numel() + (100 + len(iv) + len(mac))/4)
         t = torch.zeros(num_in_int32, dtype=torch.int32)
         t[0] = tensor.dim()
@@ -136,8 +138,11 @@ class _SecureMkldnnConvNd(torch.jit.ScriptModule):
         byte_offset += len(iv)
         plaintext = ciphertext = bytes(dtype_len * tensor.numel())
         ctypes.memmove(plaintext, tensor.storage().data_ptr(), dtype_len * tensor.numel())
-        cipher = AES.new(key, AES.MODE_GCM, nonce= iv)
-        ciphertext, mac = cipher.encrypt_and_digest(plaintext)
+        cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        encryptor.authenticate_additional_data(aad)
+        ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+        mac = encryptor.tag
         ctypes.memmove(t.storage().data_ptr() + byte_offset, mac, len(mac))
         byte_offset += len(mac)
         ctypes.memmove(t.storage().data_ptr() + byte_offset, ciphertext, len(ciphertext))
