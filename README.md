@@ -8,7 +8,7 @@
 
 This repository is for Pytorch with SGX solution.
 
-Details please see our [wiki (README under enclave_ops folder)](https://github.com/intel/pytorch/tree/sgx/enclave_ops).
+Details please see our [wiki (README under enclave_ops folder)](https://github.com/intel/sgx-pytorch/tree/sgx/enclave_ops).
 
 You can also reference [Ali cloud best practice](https://help.aliyun.com/document_detail/349295.html) for the specific cloud deployment plan.  
 
