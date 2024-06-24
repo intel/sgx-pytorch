@@ -72,6 +72,7 @@ App_Link_Flags := -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) \
 	-lpthread \
 	-lsgx_dcap_quoteverify \
 	-ldl \
+	-lbsd \
 	-lsgx_ukey_exchange \
 	-lsample_libcrypto -Lsample_libcrypto -Wl,-rpath=$(CURDIR)/sample_libcrypto
 

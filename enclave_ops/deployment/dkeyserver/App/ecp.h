@@ -32,6 +32,7 @@
 #ifndef _ECP_H
 #define _ECP_H
 
+#include <bsd/string.h>
 #include <stdint.h>
 #include <stdlib.h>
 
